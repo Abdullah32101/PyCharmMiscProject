@@ -74,7 +74,7 @@ jobs:
         echo "- ✅ Reporting System" >> $GITHUB_STEP_SUMMARY
 
     - name: Upload deployment artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: deployment-package
         path: deployment/
