@@ -1,0 +1,81 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [ develop, staging ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - testing
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run pre-deployment tests
+      run: |
+        echo "Running quick smoke tests before deployment..."
+        pytest tests/ -k "test_one_time_book_purchase" --tb=short -v
+
+    - name: Deploy to staging
+      run: |
+        echo "🚀 Deploying to ${{ github.event.inputs.environment || 'staging' }} environment"
+        echo "📦 Package: Automated Test Framework"
+        echo "🔧 Version: $(git rev-parse --short HEAD)"
+        echo "📅 Deploy Time: $(date)"
+        
+        # Create deployment package
+        mkdir -p deployment
+        cp -r tests/ deployment/
+        cp -r pages/ deployment/
+        cp -r db/ deployment/
+        cp -r assets/ deployment/
+        cp *.py deployment/
+        cp requirements.txt deployment/
+        cp README.md deployment/
+        
+        echo "✅ Deployment package created successfully"
+
+    - name: Notify deployment
+      run: |
+        echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "**Environment:** ${{ github.event.inputs.environment || 'staging' }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** $(git rev-parse --short HEAD)" >> $GITHUB_STEP_SUMMARY
+        echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Deploy Time:** $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Deployed Components:" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Test Framework Core" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Multi-device Testing" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Database Integration" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Screenshot Management" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Error Tracking" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Reporting System" >> $GITHUB_STEP_SUMMARY
+
+    - name: Upload deployment artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: deployment-package
+        path: deployment/
+        retention-days: 7 

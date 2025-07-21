@@ -1,0 +1,239 @@
+name: Test Framework Automation
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    # Run tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # Allow manual trigger
+
+env:
+  PYTHON_VERSION: '3.9'
+  HEADLESS: 'true'
+  MOBILE_TEST: 'true'
+  TEST_DEVICES: 'desktop,iPhone X,iPad Pro'
+
+jobs:
+  test-automation:
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: test_framework
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_password
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install Chrome
+      run: |
+        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y default-mysql-client
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-html pytest-xdist coverage
+
+    - name: Create database configuration
+      run: |
+        mkdir -p db
+        cat > db/db_config.py << EOF
+        DB_CONFIG = {
+            'host': '127.0.0.1',
+            'user': 'test_user',
+            'password': 'test_password',
+            'database': 'test_framework',
+            'port': 3306
+        }
+        EOF
+
+    - name: Initialize database
+      run: |
+        python init_database.py
+        python create_tables.py
+
+    - name: Run tests with coverage
+      run: |
+        pytest tests/ \
+          --html=test_reports/report.html \
+          --self-contained-html \
+          --junitxml=test_reports/junit.xml \
+          --cov=. \
+          --cov-report=html:test_reports/coverage \
+          --cov-report=xml:test_reports/coverage.xml \
+          --cov-report=term-missing \
+          -v \
+          --tb=short
+
+    - name: Run specific test suites
+      run: |
+        echo "Running one-time book purchase tests..."
+        pytest tests/test_one_time_book_purchase.py -v
+        
+        echo "Running monthly plan tests..."
+        pytest tests/test_purchase_membership_question_by_monthly_plan.py -v
+        
+        echo "Running popular plan tests..."
+        pytest tests/test_purchase_membership_question_by_three_month_popular_plan.py -v
+
+    - name: Generate test summary
+      run: |
+        echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
+        echo "**Framework:** Automated Test Framework" >> $GITHUB_STEP_SUMMARY
+        echo "**Python Version:** ${{ env.PYTHON_VERSION }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Test Devices:** ${{ env.TEST_DEVICES }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Headless Mode:** ${{ env.HEADLESS }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Test Suites:" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ One-time Book Purchase Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Monthly Plan Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Popular Plan Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Six Month Plan Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ One-time Plan Tests" >> $GITHUB_STEP_SUMMARY
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: |
+          test_reports/
+          screenshots/
+        retention-days: 30
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: coverage-reports
+        path: test_reports/coverage/
+        retention-days: 30
+
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          let summary = '## 🧪 Test Automation Results\n\n';
+          
+          try {
+            const testResults = fs.readFileSync('test_reports/report.html', 'utf8');
+            const passed = (testResults.match(/passed/g) || []).length;
+            const failed = (testResults.match(/failed/g) || []).length;
+            const errors = (testResults.match(/error/g) || []).length;
+            
+            summary += `**Test Results:**\n`;
+            summary += `- ✅ Passed: ${passed}\n`;
+            summary += `- ❌ Failed: ${failed}\n`;
+            summary += `- ⚠️ Errors: ${errors}\n\n`;
+          } catch (e) {
+            summary += '⚠️ Could not read test results\n\n';
+          }
+          
+          summary += '**Framework Features:**\n';
+          summary += '- 🖥️ Multi-device testing (Desktop, Mobile, Tablet)\n';
+          summary += '- 🗄️ Database integration\n';
+          summary += '- 📸 Screenshot capture on failures\n';
+          summary += '- 🔗 Error link generation\n';
+          summary += '- 📊 Comprehensive reporting\n\n';
+          
+          summary += '**Test Artifacts:**\n';
+          summary += '- HTML reports available in artifacts\n';
+          summary += '- Screenshots for failed tests\n';
+          summary += '- Coverage reports\n';
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });
+
+  code-quality:
+    runs-on: ubuntu-latest
+    needs: test-automation
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install linting tools
+      run: |
+        pip install flake8 black isort mypy pylint
+
+    - name: Run code formatting check
+      run: |
+        black --check --diff .
+        isort --check-only --diff .
+
+    - name: Run linting
+      run: |
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Run type checking
+      run: |
+        mypy . --ignore-missing-imports
+
+    - name: Run security scan
+      run: |
+        pip install bandit
+        bandit -r . -f json -o bandit-report.json || true
+
+  notify-results:
+    runs-on: ubuntu-latest
+    needs: [test-automation, code-quality]
+    if: always()
+    
+    steps:
+    - name: Notify on failure
+      if: failure()
+      run: |
+        echo "❌ Test automation or code quality checks failed!"
+        echo "Check the workflow logs for details."
+        
+    - name: Notify on success
+      if: success()
+      run: |
+        echo "✅ All tests passed and code quality checks completed successfully!"
+        echo "🎉 Your test framework is working perfectly!" 
