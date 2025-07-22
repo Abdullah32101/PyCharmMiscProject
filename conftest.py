@@ -8,8 +8,8 @@ from db.db_helper import MySQLHelper
 from screenshot_utils import screenshot_manager
 import traceback
 
-# By default: headless = False
-HEADLESS = os.getenv("HEADLESS", "false").lower() == "true"
+# By default: headless = True for CI environments
+HEADLESS = os.getenv("HEADLESS", "true").lower() == "true"
 
 # Initialize database helper lazily to avoid import-time connection issues
 db_helper = None
@@ -251,9 +251,7 @@ def driver(request):
     global _device_info
     _device_info["name"] = device
     
-    # Create temporary directory for Chrome user data
-    import tempfile
-    temp_dir = tempfile.mkdtemp(prefix=f"chrome_user_data_{device.replace(' ', '_')}_")
+
     
     chrome_options = Options()
 
@@ -338,10 +336,17 @@ def driver(request):
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
     
-    # Add unique user data directory to prevent conflicts in CI
-    chrome_options.add_argument(f"--user-data-dir={temp_dir}")
+    # Disable user data directory completely for CI compatibility
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-first-run")
     chrome_options.add_argument("--no-default-browser-check")
+    chrome_options.add_argument("--disable-background-timer-throttling")
+    chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+    chrome_options.add_argument("--disable-renderer-backgrounding")
+    chrome_options.add_argument("--disable-features=TranslateUI")
+    chrome_options.add_argument("--disable-ipc-flooding-protection")
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
     
@@ -359,10 +364,3 @@ def driver(request):
     
     yield driver
     driver.quit()
-    
-    # Clean up temporary user data directory
-    try:
-        import shutil
-        shutil.rmtree(temp_dir, ignore_errors=True)
-    except Exception as e:
-        print(f"[⚠️] Could not clean up temp directory {temp_dir}: {e}")
