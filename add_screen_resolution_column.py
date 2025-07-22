@@ -6,6 +6,7 @@ Add screen_resolution column to test_results table
 import mysql.connector
 from db.db_config import DB_CONFIG
 
+
 def add_screen_resolution_column():
     """Add screen_resolution column to test_results table"""
     
