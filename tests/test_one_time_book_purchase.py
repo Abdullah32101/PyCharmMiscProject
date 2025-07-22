@@ -1,17 +1,22 @@
 import time
+
 import pytest
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+
 from pages.one_time_book_purchase_methods import OneTimeBookPurchasePage
+
 
 def test_book_page_load_and_click(driver):
     page = OneTimeBookPurchasePage(driver)
     is_mobile = driver.execute_script("return window.innerWidth < 768;")
 
     try:
-        print(f"[🚀] Starting book purchase test on {'Mobile' if is_mobile else 'Desktop'}")
+        print(
+            f"[🚀] Starting book purchase test on {'Mobile' if is_mobile else 'Desktop'}"
+        )
 
         # Step 1: Open the Book Page
         page.open_book_page()
@@ -41,7 +46,7 @@ def test_book_page_load_and_click(driver):
             time.sleep(2)
             driver.execute_script("window.scrollTo(0, 0);")
             time.sleep(1)
-        
+
         page.fill_billing_details()
 
         # Step 6: Select Card Payment Method
@@ -93,30 +98,34 @@ def test_book_page_load_and_click(driver):
         if is_mobile:
             # Wait longer on mobile for order processing
             confirmation_element = WebDriverWait(driver, 90).until(
-                EC.presence_of_element_located((
-                    By.XPATH,
-                    "//text()[contains(., 'Book Order #')]/ancestor::*[1]"
-                ))
+                EC.presence_of_element_located(
+                    (By.XPATH, "//text()[contains(., 'Book Order #')]/ancestor::*[1]")
+                )
             )
         else:
             confirmation_element = WebDriverWait(driver, 60).until(
-                EC.presence_of_element_located((
-                    By.XPATH,
-                    "//text()[contains(., 'Book Order #')]/ancestor::*[1]"
-                ))
+                EC.presence_of_element_located(
+                    (By.XPATH, "//text()[contains(., 'Book Order #')]/ancestor::*[1]")
+                )
             )
 
         # Optional: Allow final UI animations to settle
         time.sleep(5)
-        
-        print(f"[🎉] Book purchase test completed successfully on {'Mobile' if is_mobile else 'Desktop'}")
-        
+
+        print(
+            f"[🎉] Book purchase test completed successfully on {'Mobile' if is_mobile else 'Desktop'}"
+        )
+
     except Exception as e:
-        print(f"[❌] Test failed on {'Mobile' if is_mobile else 'Desktop'}: {type(e).__name__} – {e}")
+        print(
+            f"[❌] Test failed on {'Mobile' if is_mobile else 'Desktop'}: {type(e).__name__} – {e}"
+        )
         driver.save_screenshot(f"book_purchase_error_{int(time.time())}.png")
-        
+
         # Save page source for debugging
-        with open(f"book_purchase_error_{int(time.time())}.html", "w", encoding="utf-8") as f:
+        with open(
+            f"book_purchase_error_{int(time.time())}.html", "w", encoding="utf-8"
+        ) as f:
             f.write(driver.page_source)
-        
+
         raise e

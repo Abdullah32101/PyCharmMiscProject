@@ -6,10 +6,11 @@ Creates 4 additional tables in the test database.
 
 from db.db_helper import MySQLHelper
 
+
 class TableCreator:
     def __init__(self):
         self.db_helper = MySQLHelper()
-    
+
     def create_users_table(self):
         """Create users table"""
         create_table_query = """
@@ -129,32 +130,32 @@ class TableCreator:
         """Create all 4 tables"""
         print("🔧 Creating 4 additional tables in test database...")
         print("=" * 60)
-        
+
         tables = [
             ("Users Table", self.create_users_table),
             ("Books Table", self.create_books_table),
             ("Orders Table", self.create_orders_table),
-            ("Subscriptions Table", self.create_subscriptions_table)
+            ("Subscriptions Table", self.create_subscriptions_table),
         ]
-        
+
         success_count = 0
         total_tables = len(tables)
-        
+
         for table_name, create_func in tables:
             print(f"\n📋 Creating {table_name}...")
             if create_func():
                 success_count += 1
             else:
                 print(f"❌ Failed to create {table_name}")
-        
+
         print("\n" + "=" * 60)
         print(f"📊 Results: {success_count}/{total_tables} tables created successfully")
-        
+
         if success_count == total_tables:
             print("🎉 All tables created successfully!")
         else:
             print("⚠️ Some tables failed to create. Check the error messages above.")
-        
+
         return success_count == total_tables
 
     def show_table_info(self):
@@ -163,23 +164,23 @@ class TableCreator:
             # Get all tables
             self.db_helper.cursor.execute("SHOW TABLES")
             tables = self.db_helper.cursor.fetchall()
-            
+
             print("\n📋 Database Tables:")
             print("=" * 40)
-            
+
             for table in tables:
                 table_name = list(table.values())[0]
                 print(f"✅ {table_name}")
-                
+
                 # Get table structure
                 self.db_helper.cursor.execute(f"DESCRIBE {table_name}")
                 columns = self.db_helper.cursor.fetchall()
-                
+
                 print(f"   Columns ({len(columns)}):")
                 for col in columns:
                     print(f"     - {col['Field']} ({col['Type']})")
                 print()
-        
+
         except Exception as e:
             print(f"❌ Error showing table info: {e}")
 
@@ -187,23 +188,25 @@ class TableCreator:
         """Close database connection"""
         self.db_helper.close()
 
+
 def main():
     """Main function to create tables"""
     try:
         creator = TableCreator()
-        
+
         # Create all tables
         success = creator.create_all_tables()
-        
+
         if success:
             # Show table information
             creator.show_table_info()
-        
+
         creator.close()
-        
+
     except Exception as e:
         print(f"❌ Database operation failed: {e}")
         print("Please check your database configuration in db/db_config.py")
 
+
 if __name__ == "__main__":
-    main() 
+    main()

@@ -1,11 +1,17 @@
-import pytest
 import time
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
-from pages.purchase_membership_question_by_monthly_plan_methods import SolutionInnPrimaryPage
-from pages.purchase_membership_question_by_one_time_plan_methods import SolutionInnSecondaryPage
+import pytest
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+
+from pages.purchase_membership_question_by_monthly_plan_methods import (
+    SolutionInnPrimaryPage,
+)
+from pages.purchase_membership_question_by_one_time_plan_methods import (
+    SolutionInnSecondaryPage,
+)
+
 
 @pytest.mark.parametrize("stage", ["primary", "secondary"])
 def test_purchase_membership_question_by_monthly_plan_flow(driver, stage):
@@ -51,16 +57,20 @@ def test_purchase_membership_question_by_monthly_plan_flow(driver, stage):
         # Step 7: Confirmation
         try:
             WebDriverWait(driver, 8).until(
-                EC.presence_of_element_located((
-                    By.CSS_SELECTOR, ".thank-you-message, .error-msg, .alert-danger"
-                ))
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, ".thank-you-message, .error-msg, .alert-danger")
+                )
             )
-            print(f"[✅] {stage.capitalize()} stage: Confirmation or error message appeared.")
+            print(
+                f"[✅] {stage.capitalize()} stage: Confirmation or error message appeared."
+            )
         except Exception:
             print(f"[⚠️] {stage.capitalize()} stage: No confirmation appeared.")
-            driver.save_screenshot(f"monthly_plan_no_confirmation_{stage}_{int(time.time())}.png")
+            driver.save_screenshot(
+                f"monthly_plan_no_confirmation_{stage}_{int(time.time())}.png"
+            )
             time.sleep(3)
-            
+
     except Exception as e:
         driver.save_screenshot(f"monthly_plan_error_{stage}_{int(time.time())}.png")
-        raise e 
+        raise e

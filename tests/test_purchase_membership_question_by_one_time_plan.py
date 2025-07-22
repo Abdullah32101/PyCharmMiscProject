@@ -1,14 +1,22 @@
-import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+import time
 
 import pytest
-import time
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from pages.purchase_membership_question_by_monthly_plan_methods import SolutionInnPrimaryPage
-from pages.purchase_membership_question_by_one_time_plan_methods import SolutionInnSecondaryPage
+from selenium.webdriver.support.ui import WebDriverWait
+
+from pages.purchase_membership_question_by_monthly_plan_methods import (
+    SolutionInnPrimaryPage,
+)
+from pages.purchase_membership_question_by_one_time_plan_methods import (
+    SolutionInnSecondaryPage,
+)
+
 
 @pytest.mark.parametrize("stage", ["primary", "secondary"])
 def test_purchase_membership_question_by_one_time_plan(driver, stage):
@@ -35,12 +43,12 @@ def test_purchase_membership_question_by_one_time_plan(driver, stage):
         # -------------------- After Sign-Up --------------------
         print(f"[🔄] Starting post-registration flow for {stage}")
         page.click_view_solution_button()
-        
+
         # Add explicit wait and logging for one-time plan button
         print(f"[🔍] Looking for one-time plan button on {stage}")
         page.click_one_time_plan_button()
         print(f"[✅] One-time plan button clicked for {stage}")
-        
+
         page.click_payment_toggle()
         print(f"[✅] Payment toggle clicked for {stage}")
 
@@ -79,55 +87,68 @@ def test_purchase_membership_question_by_one_time_plan(driver, stage):
             # Try multiple confirmation selectors
             confirmation_selectors = [
                 ".thank-you-message",
-                ".error-msg", 
+                ".error-msg",
                 ".alert-danger",
                 ".success-message",
                 ".order-confirmation",
                 "[class*='success']",
                 "[class*='error']",
-                "[class*='alert']"
+                "[class*='alert']",
             ]
-            
+
             confirmation_found = False
             for selector in confirmation_selectors:
                 try:
                     element = WebDriverWait(driver, 3).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, selector))
                     )
-                    print(f"[✅] ({stage}) Confirmation/error message found with selector: {selector}")
+                    print(
+                        f"[✅] ({stage}) Confirmation/error message found with selector: {selector}"
+                    )
                     print(f"[📄] Message text: {element.text[:100]}...")
                     confirmation_found = True
                     break
                 except Exception:
                     continue
-            
+
             if not confirmation_found:
                 # Check page title or URL changes
                 current_url = driver.current_url
                 page_title = driver.title
-                print(f"[ℹ️] ({stage}) No confirmation message found. Current URL: {current_url}")
+                print(
+                    f"[ℹ️] ({stage}) No confirmation message found. Current URL: {current_url}"
+                )
                 print(f"[ℹ️] ({stage}) Page title: {page_title}")
-                
+
                 # Check if there's any text indicating success or error
                 body_text = driver.find_element(By.TAG_NAME, "body").text.lower()
-                if any(keyword in body_text for keyword in ['success', 'thank', 'order', 'confirmation']):
+                if any(
+                    keyword in body_text
+                    for keyword in ["success", "thank", "order", "confirmation"]
+                ):
                     print(f"[✅] ({stage}) Success keywords found in page content")
-                elif any(keyword in body_text for keyword in ['error', 'failed', 'invalid']):
+                elif any(
+                    keyword in body_text for keyword in ["error", "failed", "invalid"]
+                ):
                     print(f"[❌] ({stage}) Error keywords found in page content")
                 else:
                     print(f"[⚠️] ({stage}) No clear success/error indicators found")
-                    
+
         except Exception as e:
-            print(f"[⚠️] ({stage}) Error during confirmation check: {type(e).__name__} – {e}")
-        
+            print(
+                f"[⚠️] ({stage}) Error during confirmation check: {type(e).__name__} – {e}"
+            )
+
         # Always save screenshot for debugging
         driver.save_screenshot(f"onetime_plan_final_{stage}_{int(time.time())}.png")
         print(f"[📸] Screenshot saved for {stage}")
-        
+
     except Exception as e:
         print(f"[❌] Test failed for {stage}: {type(e).__name__} – {e}")
         driver.save_screenshot(f"onetime_plan_error_{stage}_{int(time.time())}.png")
         # Save page source for debugging
-        with open(f"onetime_plan_error_{stage}_{int(time.time())}.html", "w", encoding="utf-8") as f:
+        with open(
+            f"onetime_plan_error_{stage}_{int(time.time())}.html", "w", encoding="utf-8"
+        ) as f:
             f.write(driver.page_source)
-        raise e 
+        raise e
