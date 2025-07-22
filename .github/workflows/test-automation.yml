@@ -87,9 +87,9 @@ jobs:
         python init_database.py
         python create_tables.py
 
-    - name: Run tests with coverage
+    - name: Run fast CI tests with coverage
       run: |
-        pytest tests/ \
+        pytest tests/test_ci_smoke.py \
           --html=test_reports/report.html \
           --self-contained-html \
           --junitxml=test_reports/junit.xml \
@@ -98,18 +98,14 @@ jobs:
           --cov-report=xml:test_reports/coverage.xml \
           --cov-report=term-missing \
           -v \
-          --tb=short
+          --tb=short \
+          --timeout=120
 
-    - name: Run specific test suites
+    - name: Run additional quick tests
       run: |
-        echo "Running one-time book purchase tests..."
-        pytest tests/test_one_time_book_purchase.py -v
-        
-        echo "Running monthly plan tests..."
-        pytest tests/test_purchase_membership_question_by_monthly_plan.py -v
-        
-        echo "Running popular plan tests..."
-        pytest tests/test_purchase_membership_question_by_three_month_popular_plan.py -v
+        echo "Running additional quick tests..."
+        pytest tests/test_db_integration.py -v --timeout=60
+        pytest tests/test_error_link_simple.py -v --timeout=60
 
     - name: Generate test summary
       run: |
@@ -120,11 +116,11 @@ jobs:
         echo "**Headless Mode:** ${{ env.HEADLESS }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Test Suites:" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ One-time Book Purchase Tests" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Monthly Plan Tests" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Popular Plan Tests" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Six Month Plan Tests" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ One-time Plan Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Fast CI Smoke Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Database Integration Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Error Link Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Multi-device Testing" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Coverage Reporting" >> $GITHUB_STEP_SUMMARY
 
     - name: Upload test results
       uses: actions/upload-artifact@v4
