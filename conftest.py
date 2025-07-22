@@ -251,6 +251,10 @@ def driver(request):
     global _device_info
     _device_info["name"] = device
     
+    # Create temporary directory for Chrome user data
+    import tempfile
+    temp_dir = tempfile.mkdtemp(prefix=f"chrome_user_data_{device.replace(' ', '_')}_")
+    
     chrome_options = Options()
 
     if HEADLESS:
@@ -333,6 +337,11 @@ def driver(request):
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
+    
+    # Add unique user data directory to prevent conflicts in CI
+    chrome_options.add_argument(f"--user-data-dir={temp_dir}")
+    chrome_options.add_argument("--no-first-run")
+    chrome_options.add_argument("--no-default-browser-check")
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
     
@@ -350,3 +359,10 @@ def driver(request):
     
     yield driver
     driver.quit()
+    
+    # Clean up temporary user data directory
+    try:
+        import shutil
+        shutil.rmtree(temp_dir, ignore_errors=True)
+    except Exception as e:
+        print(f"[⚠️] Could not clean up temp directory {temp_dir}: {e}")
