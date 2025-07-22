@@ -1,4 +1,6 @@
 selenium
 pytest
+pytest-cov
+pytest-html
 webdriver-manager
 mysql-connector-python
