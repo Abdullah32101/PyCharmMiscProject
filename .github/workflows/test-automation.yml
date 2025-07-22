@@ -200,8 +200,9 @@ jobs:
 
     - name: Run code formatting check
       run: |
-        black --check --diff .
+        # Run isort first, then black to ensure compatibility
         isort --check-only --diff .
+        black --check --diff .
 
     - name: Run linting
       run: |
