@@ -9,55 +9,37 @@ from db.db_helper import MySQLHelper
 
 def test_database_connection():
     """Test database connection and table creation"""
-    try:
-        db_helper = MySQLHelper()
-        db_helper.create_test_results_table()
-        print("✅ Database connection successful")
-        db_helper.close()
-        return True
-    except Exception as e:
-        print(f"❌ Database connection failed: {e}")
-        return False
+    db_helper = MySQLHelper()
+    db_helper.create_test_results_table()
+    print("✅ Database connection successful")
+    db_helper.close()
+    assert True  # Test passes if no exception is raised
 
 def test_insert_test_result():
     """Test inserting a test result"""
-    try:
-        db_helper = MySQLHelper()
-        
-        # Insert a test result
-        db_helper.insert_test_result(
-            test_case_name="test_database_integration",
-            module_name="test_db_integration",
-            test_status="PASSED",
-            error_message=None
-        )
-        
-        # Get statistics to verify
-        stats = db_helper.get_test_statistics()
-        if stats and 'total_tests' in stats and stats['total_tests'] and stats['total_tests'] > 0:
-            print("✅ Test result insertion successful")
-            db_helper.close()
-            return True
-        else:
-            print("❌ Test result insertion failed - no records found")
-            db_helper.close()
-            return False
-            
-    except Exception as e:
-        print(f"❌ Test result insertion failed: {e}")
-        return False
+    db_helper = MySQLHelper()
+    
+    # Insert a test result
+    db_helper.insert_test_result(
+        test_case_name="test_database_integration",
+        module_name="test_db_integration",
+        test_status="PASSED",
+        error_message=None
+    )
+    
+    # Get statistics to verify
+    stats = db_helper.get_test_statistics()
+    assert stats and 'total_tests' in stats and stats['total_tests'] and stats['total_tests'] > 0, "No test records found"
+    print("✅ Test result insertion successful")
+    db_helper.close()
 
-def test_get_test_results():
+def test_get_test_result():
     """Test retrieving test results"""
-    try:
-        db_helper = MySQLHelper()
-        results = db_helper.get_test_results(limit=10)
-        print(f"✅ Retrieved {len(results)} test results")
-        db_helper.close()
-        return True
-    except Exception as e:
-        print(f"❌ Failed to retrieve test results: {e}")
-        return False
+    db_helper = MySQLHelper()
+    results = db_helper.get_test_results(limit=10)
+    print(f"✅ Retrieved {len(results)} test results")
+    assert isinstance(results, list), "Results should be a list"
+    db_helper.close()
 
 def main():
     """Run all database integration tests"""
