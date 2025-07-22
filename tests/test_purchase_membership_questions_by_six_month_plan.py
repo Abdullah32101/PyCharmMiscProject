@@ -5,10 +5,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from pages.purchase_membership_question_by_monthly_plan_methods import \
-    SolutionInnPrimaryPage
-from pages.purchase_membership_question_by_one_time_plan_methods import \
-    SolutionInnSecondaryPage
+from pages.purchase_membership_question_by_monthly_plan_methods import (
+    SolutionInnPrimaryPage,
+)
+from pages.purchase_membership_question_by_one_time_plan_methods import (
+    SolutionInnSecondaryPage,
+)
 
 
 @pytest.mark.parametrize("stage", ["primary", "secondary"])

@@ -6,11 +6,24 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select, WebDriverWait
 
 # Constants for configuration
-from constants import (ADDRESS, BOOK_URL, CARD_HOLDER_NAME, CARD_NUMBER, CITY,
-                       COUNTRY, CVC, DEFAULT_FIRST_NAME, DEFAULT_LAST_NAME,
-                       DEFAULT_PASSWORD, DEFAULT_UNIVERSITY,
-                       EXPIRY_MONTH_LABEL, EXPIRY_YEAR_LABEL, PHONE_NUMBER,
-                       POSTAL_CODE, STATE)
+from constants import (
+    ADDRESS,
+    BOOK_URL,
+    CARD_HOLDER_NAME,
+    CARD_NUMBER,
+    CITY,
+    COUNTRY,
+    CVC,
+    DEFAULT_FIRST_NAME,
+    DEFAULT_LAST_NAME,
+    DEFAULT_PASSWORD,
+    DEFAULT_UNIVERSITY,
+    EXPIRY_MONTH_LABEL,
+    EXPIRY_YEAR_LABEL,
+    PHONE_NUMBER,
+    POSTAL_CODE,
+    STATE,
+)
 
 
 class OneTimeBookPurchasePage:
