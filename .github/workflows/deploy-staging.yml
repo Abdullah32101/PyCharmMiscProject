@@ -66,7 +66,7 @@ jobs:
     - name: Run pre-deployment tests
       run: |
         echo "Running quick smoke tests before deployment..."
-        pytest tests/ -k "test_one_time_book_purchase" --tb=short -v
+        pytest tests/test_ci_smoke.py --tb=short -v --timeout=60
 
     - name: Deploy to staging
       run: |
