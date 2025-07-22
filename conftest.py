@@ -283,7 +283,7 @@ def driver(request):
     device = request.param
 
     # Store device information in global variable
-    global _device_info
+    global _device_info  # noqa: F824
     _device_info["name"] = device
 
     chrome_options = Options()

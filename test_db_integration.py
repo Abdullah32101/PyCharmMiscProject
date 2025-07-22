@@ -59,7 +59,7 @@ def main():
     tests = [
         ("Database Connection", test_database_connection),
         ("Insert Test Result", test_insert_test_result),
-        ("Get Test Results", test_get_test_results),
+        ("Get Test Results", test_get_test_result),
     ]
 
     passed = 0
