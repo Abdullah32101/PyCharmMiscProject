@@ -104,8 +104,8 @@ jobs:
     - name: Run additional quick tests
       run: |
         echo "Running additional quick tests..."
-        pytest tests/test_db_integration.py -v --timeout=60
-        pytest tests/test_error_link_simple.py -v --timeout=60
+        pytest test_db_integration.py -v --timeout=60
+        pytest test_error_link_simple.py -v --timeout=60
 
     - name: Generate test summary
       run: |
