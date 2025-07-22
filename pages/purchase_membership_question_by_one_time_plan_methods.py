@@ -4,19 +4,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from constants import (
-    CARD_HOLDER_NAME,
-    CARD_NUMBER,
-    CVC,
-    DEFAULT_PASSWORD,
-    DEFAULT_UNIVERSITY,
-    EMAIL_DOMAIN,
-    EXPIRY_MONTH,
-    EXPIRY_YEAR,
-    POSTAL_CODE,
-    SECONDARY_URL,
-    VIEW_SOLUTION_BTN_CSS,
-)
+from constants import (CARD_HOLDER_NAME, CARD_NUMBER, CVC, DEFAULT_PASSWORD,
+                       DEFAULT_UNIVERSITY, EMAIL_DOMAIN, EXPIRY_MONTH,
+                       EXPIRY_YEAR, POSTAL_CODE, SECONDARY_URL,
+                       VIEW_SOLUTION_BTN_CSS)
 
 
 class SolutionInnSecondaryPage:
