@@ -11,8 +11,15 @@ import traceback
 # By default: headless = False
 HEADLESS = os.getenv("HEADLESS", "false").lower() == "true"
 
-# Initialize database helper
-db_helper = MySQLHelper()
+# Initialize database helper lazily to avoid import-time connection issues
+db_helper = None
+
+def get_db_helper():
+    """Get database helper instance, creating it if needed"""
+    global db_helper
+    if db_helper is None:
+        db_helper = MySQLHelper()
+    return db_helper
 
 # Global variable to store device information
 _device_info = {"name": "unknown", "resolution": "unknown"}
@@ -25,9 +32,10 @@ def device_info():
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
     """Setup database table for test results"""
-    db_helper.create_test_results_table()
+    helper = get_db_helper()
+    helper.create_test_results_table()
     yield
-    db_helper.close()
+    helper.close()
 
 @pytest.fixture(autouse=True)
 def capture_test_results(request, device_info):
@@ -198,7 +206,8 @@ def capture_test_results(request, device_info):
     # Store result in database
     try:
         print(f"[💾] Storing test result: {cleaned_test_name} - {status} - Device: {device_name} - Resolution: {screen_resolution}")
-        db_helper.store_test_result_in_tables(
+        helper = get_db_helper()
+        helper.store_test_result_in_tables(
             cleaned_test_name, 
             module_name, 
             status, 
