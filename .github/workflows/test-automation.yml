@@ -21,19 +21,11 @@ env:
 jobs:
   test-automation:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
     
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: test_framework
-          MYSQL_USER: test_user
-          MYSQL_PASSWORD: test_password
-        ports:
-          - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -75,27 +67,19 @@ jobs:
         mkdir -p db
         cat > db/db_config.py << EOF
         DB_CONFIG = {
-            'host': '127.0.0.1',
-            'user': 'test_user',
-            'password': 'test_password',
-            'database': 'test_framework',
-            'port': 3306
+            'host': 'solutionsole.com',
+            'user': 'root',
+            'password': 'SolutionInn321',
+            'database': 'test'
         }
         EOF
 
     - name: Initialize database
       run: |
-        # Wait for MySQL to be ready
-        echo "Waiting for MySQL to be ready..."
-        sleep 10
-        
-        # Try database initialization with retries
-        for i in {1..3}; do
-          echo "Attempt $i: Initializing database..."
-          python init_database.py && python create_tables.py && break
-          echo "Database initialization failed, retrying in 5 seconds..."
-          sleep 5
-        done
+        # Test database connection to remote server
+        echo "Testing database connection to solutionsole.com..."
+        python init_database.py
+        echo "✅ Database connection successful!"
 
     - name: Run fast CI tests with coverage
       run: |

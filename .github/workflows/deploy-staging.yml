@@ -18,18 +18,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'staging' }}
-    
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: test_framework
-          MYSQL_USER: test_user
-          MYSQL_PASSWORD: test_password
-        ports:
-          - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
     
     steps:
     - name: Checkout code
@@ -50,18 +42,18 @@ jobs:
         mkdir -p db
         cat > db/db_config.py << EOF
         DB_CONFIG = {
-            'host': '127.0.0.1',
-            'user': 'test_user',
-            'password': 'test_password',
-            'database': 'test_framework',
-            'port': 3306
+            'host': 'solutionsole.com',
+            'user': 'root',
+            'password': 'SolutionInn321',
+            'database': 'test'
         }
         EOF
 
     - name: Initialize database
       run: |
+        echo "Testing database connection to solutionsole.com..."
         python init_database.py
-        python create_tables.py
+        echo "✅ Database connection successful!"
 
     - name: Run pre-deployment tests
       run: |
