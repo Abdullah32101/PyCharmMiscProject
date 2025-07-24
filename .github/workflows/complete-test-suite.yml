@@ -95,41 +95,45 @@ jobs:
 
     - name: Initialize database and verify connection
       continue-on-error: true
-      timeout-minutes: 1
+      timeout-minutes: 2
       run: |
         echo "🔗 Testing database connection to ${{ env.DATABASE_HOST }}..."
-        echo "⏱️ This step has a 1-minute timeout"
+        echo "⏱️ This step has a 2-minute timeout"
         echo "⚠️ This step will continue even if it fails"
         echo ""
         
-        # Quick connectivity test first (5 seconds timeout)
-        echo "🧪 Quick connectivity test..."
-        timeout 5 python quick_db_test.py
-        QUICK_TEST_RESULT=$?
+        # Run robust connectivity test with better error handling
+        echo "🧪 Running robust database connection test..."
+        python test_db_connection_robust.py
+        ROBUST_TEST_RESULT=$?
         
-        if [ $QUICK_TEST_RESULT -eq 0 ]; then
-          echo "✅ Quick connection successful!"
+        if [ $ROBUST_TEST_RESULT -eq 0 ]; then
+          echo "✅ Robust connection test successful!"
           echo "🧪 Running full database initialization..."
           python init_database.py || echo "⚠️ Database initialization failed"
         else
-          echo "❌ Quick connection failed!"
+          echo "❌ Robust connection test failed!"
           echo "⏭️ Skipping database initialization due to connection timeout"
+          echo ""
+          echo "🔧 TROUBLESHOOTING STEPS:"
+          echo "1. SSH into your database server (18.235.51.183)"
+          echo "2. Run: sudo ufw allow 3306"
+          echo "3. Check: grep bind-address /etc/mysql/mysql.conf.d/mysqld.cnf"
+          echo "4. Ensure: bind-address = 0.0.0.0"
+          echo "5. Restart MySQL: sudo systemctl restart mysql"
+          echo "6. Grant permissions: GRANT ALL PRIVILEGES ON solutioninn_testing.* TO 'sqa_user'@'%';"
         fi
         
         echo ""
         echo "📊 DATABASE CONNECTION SUMMARY:"
         echo "-" * 40
-        if [ $QUICK_TEST_RESULT -eq 0 ]; then
+        if [ $ROBUST_TEST_RESULT -eq 0 ]; then
           echo "✅ Database connection successful!"
           echo "✅ Tests will save results to database"
         else
           echo "❌ Database connection failed!"
           echo "⚠️ Tests will run but results will NOT be saved to database"
-          echo "🔧 Server database issues can be resolved by:"
-          echo "   1. Checking MySQL bind-address configuration"
-          echo "   2. Verifying user permissions for external connections"
-          echo "   3. Ensuring firewall allows port 3306"
-          echo "   4. Testing connectivity from the server itself"
+          echo "🔧 See troubleshooting steps above for resolution"
         fi
 
     - name: Create test reports directory
