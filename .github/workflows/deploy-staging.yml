@@ -18,10 +18,18 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'staging' }}
+    # Enhanced permissions to prevent email verification issues
     permissions:
       contents: read
       issues: write
       pull-requests: read
+      actions: read
+      security-events: write
+    
+    # Add concurrency to prevent multiple runs
+    concurrency:
+      group: deploy-staging-${{ github.ref }}
+      cancel-in-progress: true
     
     steps:
     - name: Checkout code
