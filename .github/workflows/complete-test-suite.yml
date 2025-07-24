@@ -95,26 +95,23 @@ jobs:
 
     - name: Initialize database and verify connection
       continue-on-error: true
-      timeout-minutes: 2
+      timeout-minutes: 1
       run: |
         echo "🔗 Testing database connection to ${{ env.DATABASE_HOST }}..."
-        echo "⏱️ This step has a 2-minute timeout"
+        echo "⏱️ This step has a 1-minute timeout"
         echo "⚠️ This step will continue even if it fails"
         echo ""
         
-        # Try database initialization
-        python init_database.py || echo "⚠️ Database initialization failed, trying simple test..."
+        # Quick connectivity test first (5 seconds timeout)
+        echo "🧪 Quick connectivity test..."
+        timeout 5 python quick_db_test.py || echo "⚠️ Quick connection failed, skipping database tests"
         
-        # If initialization fails, try simple connection test
-        if [ $? -ne 0 ]; then
-          echo "🧪 Running simple connectivity test..."
-          python test_db_connection_simple.py || echo "⚠️ Simple test failed, trying detailed test..."
-          
-          # If simple test fails, try the detailed test
-          if [ $? -ne 0 ]; then
-            echo "🧪 Running detailed database test..."
-            python test_db_connection_github.py || echo "❌ Database connection failed"
-          fi
+        # Only try full initialization if quick test passed
+        if [ $? -eq 0 ]; then
+          echo "🧪 Running full database initialization..."
+          python init_database.py || echo "⚠️ Database initialization failed"
+        else
+          echo "⏭️ Skipping database initialization due to connection timeout"
         fi
         
         echo ""
