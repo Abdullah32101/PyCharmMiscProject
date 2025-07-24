@@ -70,10 +70,10 @@ jobs:
         mkdir -p db
         cat > db/db_config.py << EOF
         DB_CONFIG = {
-            'host': 'solutionsole.com',
-            'user': 'root',
-            'password': 'SolutionInn321',
-            'database': 'test'
+            'host': '18.235.51.183',
+            'user': 'sqa_user',
+            'password': 'Hassan123!@#',
+            'database': 'solutioninn_testing'
         }
         EOF
         echo "✅ Database configuration created for remote server"
@@ -82,7 +82,7 @@ jobs:
       timeout-minutes: 2
       continue-on-error: true
       run: |
-        echo "🔧 Testing database connection to server (solutionsole.com)..."
+        echo "🔧 Testing database connection to server (18.235.51.183)..."
         echo "⏱️ This step has a 2-minute timeout"
         echo "⚠️ This step will continue even if it fails"
         echo ""
@@ -115,7 +115,7 @@ jobs:
         echo "🖥️ Environment: Ubuntu Latest"
         echo "🐍 Python: ${{ env.PYTHON_VERSION }}"
         echo "🔧 Headless Mode: ${{ env.HEADLESS }}"
-        echo "🗄️ Database: solutionsole.com"
+        echo "🗄️ Database: 18.235.51.183"
         echo ""
         
         # Run all tests with detailed reporting
@@ -172,7 +172,7 @@ jobs:
         echo "**Test Suite:** ${{ github.event.inputs.test_suite || 'all' }}" >> $GITHUB_STEP_SUMMARY
         echo "**Execution Time:** $(date)" >> $GITHUB_STEP_SUMMARY
         echo "**Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Database:** solutionsole.com" >> $GITHUB_STEP_SUMMARY
+        echo "**Database:** 18.235.51.183" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         if [ -f "test_reports/scheduled_report_$(date +%Y%m%d)*.html" ]; then

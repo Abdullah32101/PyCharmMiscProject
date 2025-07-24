@@ -14,7 +14,7 @@ def timeout_handler(signum, frame):
     """Handle timeout signal"""
     print("❌ Database connection timed out after 30 seconds")
     print("🔍 Possible issues:")
-    print("   - solutionsole.com is not accessible from GitHub Actions")
+    print("   - 18.235.51.183 is not accessible from GitHub Actions")
     print("   - Database server is down or not responding")
     print("   - Firewall blocking connections from GitHub IP ranges")
     sys.exit(1)
@@ -28,10 +28,10 @@ def test_github_db_connection():
     
     # Database configuration for GitHub Actions
     DB_CONFIG = {
-        'host': 'solutionsole.com',
-        'user': 'root',
-        'password': 'SolutionInn321',
-        'database': 'test',
+        'host': '18.235.51.183',
+        'user': 'sqa_user',
+        'password': 'Hassan123!@#',
+        'database': 'solutioninn_testing',
         'connect_timeout': 10,  # 10 second connection timeout
         'autocommit': True
     }
@@ -84,7 +84,7 @@ def test_github_db_connection():
         print(f"❌ Database connection failed: {e}")
         print("")
         print("🔍 Troubleshooting tips:")
-        print("1. Check if solutionsole.com is accessible from GitHub Actions")
+        print("1. Check if 18.235.51.183 is accessible from GitHub Actions")
         print("2. Verify database credentials are correct")
         print("3. Ensure database server allows external connections")
         print("4. Check firewall settings on the database server")
