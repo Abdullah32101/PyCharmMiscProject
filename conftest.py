@@ -11,7 +11,7 @@ from db.db_helper import MySQLHelper
 from screenshot_utils import screenshot_manager
 
 # By default: headless = True for CI environments
-HEADLESS = os.getenv("HEADLESS", "true").lower() == "true"
+HEADLESS = os.getenv("HEADLESS", "false").lower() == "true"
 
 # Initialize database helper lazily to avoid import-time connection issues
 db_helper = None
@@ -38,10 +38,14 @@ def device_info():
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
     """Setup database table for test results"""
-    helper = get_db_helper()
-    helper.create_test_results_table()
-    yield
-    helper.close()
+    try:
+        helper = get_db_helper()
+        helper.create_test_results_table()
+        yield
+        helper.close()
+    except Exception as e:
+        print(f"⚠️ Database setup skipped due to connection issue: {e}")
+        yield
 
 
 @pytest.fixture(autouse=True)
@@ -247,12 +251,10 @@ def capture_test_results(request, device_info):
             screen_resolution,
             error_link,
         )
+        print("✅ Test result inserted successfully")
     except Exception as e:
-        print(f"❌ Failed to store test result in database: {e}")
-        print(f"Error details: {type(e).__name__} - {e}")
-        import traceback
-
-        traceback.print_exc()
+        print(f"⚠️ Database storage skipped: {type(e).__name__} - {e}")
+        # Continue test execution without database logging
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)

@@ -524,5 +524,14 @@ class MySQLHelper:
             return None
 
     def close(self):
-        self.cursor.close()
-        self.conn.close()
+        try:
+            # Clear any unread results
+            if self.cursor:
+                try:
+                    self.cursor.fetchall()
+                except:
+                    pass
+            self.cursor.close()
+            self.conn.close()
+        except Exception as e:
+            print(f"Warning: Error closing database connection: {e}")
