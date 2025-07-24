@@ -4,6 +4,7 @@ Database Initialization Script
 Creates the test_results table in the database.
 """
 
+import sys
 from db.db_helper import MySQLHelper
 
 
@@ -32,6 +33,11 @@ def init_database():
     except Exception as e:
         print(f"❌ Database initialization failed: {e}")
         print("Please check your database configuration in db/db_config.py")
+        print("🔍 Error details:")
+        print(f"   - Error type: {type(e).__name__}")
+        print(f"   - Error message: {str(e)}")
+        print("⚠️ This is a critical error - database connection failed")
+        sys.exit(1)  # Exit with error code to indicate failure
 
 
 if __name__ == "__main__":

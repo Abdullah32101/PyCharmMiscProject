@@ -64,6 +64,10 @@ def check_database_structure():
 
     except Exception as e:
         print(f"❌ Error checking database structure: {e}")
+        print("🔍 Error details:")
+        print(f"   - Error type: {type(e).__name__}")
+        print(f"   - Error message: {str(e)}")
+        print("⚠️ Database structure check failed")
         return False
 
 
