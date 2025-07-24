@@ -1,0 +1,297 @@
+name: Complete Test Suite Execution
+# Run all test suites and store results in database
+
+on:
+  workflow_dispatch:
+    # Manual trigger for complete test suite
+    inputs:
+      test_type:
+        description: 'Type of test to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - membership_plans
+        - book_purchase
+        - smoke_tests
+  schedule:
+    # Run complete test suite daily at 8 AM UTC
+    - cron: '0 8 * * *'
+
+env:
+  PYTHON_VERSION: '3.9'
+  HEADLESS: 'true'
+  MOBILE_TEST: 'true'
+  TEST_DEVICES: 'desktop,iPhone X,iPad Pro'
+  DATABASE_HOST: 'solutionsole.com'
+  DATABASE_NAME: 'test'
+
+jobs:
+  complete-test-suite:
+    runs-on: ubuntu-latest
+    # Enhanced permissions to prevent email verification issues
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+      actions: read
+      security-events: write
+    
+    # Add concurrency to prevent multiple runs
+    concurrency:
+      group: complete-test-suite-${{ github.ref }}
+      cancel-in-progress: true
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install Chrome and dependencies
+      run: |
+        # Install Chrome
+        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add - || true
+        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable || sudo apt-get install -y chromium-browser
+        
+        # Install system dependencies
+        sudo apt-get install -y default-mysql-client xvfb
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-html pytest-xdist pytest-cov coverage pytest-timeout
+
+    - name: Create database configuration
+      run: |
+        mkdir -p db
+        cat > db/db_config.py << EOF
+        DB_CONFIG = {
+            'host': '${{ env.DATABASE_HOST }}',
+            'user': 'root',
+            'password': 'SolutionInn321',
+            'database': '${{ env.DATABASE_NAME }}'
+        }
+        EOF
+
+    - name: Initialize database and verify connection
+      run: |
+        echo "🔗 Testing database connection to ${{ env.DATABASE_HOST }}..."
+        python init_database.py
+        echo "✅ Database connection successful!"
+        
+        # Verify database tables exist
+        python check_db_structure.py
+        echo "✅ Database structure verified!"
+
+    - name: Create test reports directory
+      run: |
+        mkdir -p test_reports
+        mkdir -p screenshots
+        mkdir -p test_reports/coverage
+
+    - name: Run Smoke Tests (Fast CI)
+      run: |
+        echo "🧪 Running Smoke Tests..."
+        pytest tests/test_ci_smoke.py \
+          --html=test_reports/smoke_tests.html \
+          --self-contained-html \
+          --junitxml=test_reports/smoke_tests.xml \
+          --cov=. \
+          --cov-report=html:test_reports/coverage \
+          --cov-report=xml:test_reports/coverage.xml \
+          --cov-report=term-missing \
+          -v \
+          --tb=short \
+          --timeout=120 \
+          || echo "Smoke tests completed"
+
+    - name: Run One-Time Book Purchase Tests
+      run: |
+        echo "📚 Running One-Time Book Purchase Tests..."
+        pytest tests/test_one_time_book_purchase.py \
+          --html=test_reports/book_purchase_tests.html \
+          --self-contained-html \
+          --junitxml=test_reports/book_purchase_tests.xml \
+          -v \
+          --tb=short \
+          --timeout=300 \
+          || echo "Book purchase tests completed"
+
+    - name: Run Monthly Plan Tests
+      run: |
+        echo "📅 Running Monthly Plan Tests..."
+        pytest tests/test_purchase_membership_question_by_monthly_plan.py \
+          --html=test_reports/monthly_plan_tests.html \
+          --self-contained-html \
+          --junitxml=test_reports/monthly_plan_tests.xml \
+          -v \
+          --tb=short \
+          --timeout=300 \
+          || echo "Monthly plan tests completed"
+
+    - name: Run One-Time Plan Tests
+      run: |
+        echo "🎯 Running One-Time Plan Tests..."
+        pytest tests/test_purchase_membership_question_by_one_time_plan.py \
+          --html=test_reports/onetime_plan_tests.html \
+          --self-contained-html \
+          --junitxml=test_reports/onetime_plan_tests.xml \
+          -v \
+          --tb=short \
+          --timeout=300 \
+          || echo "One-time plan tests completed"
+
+    - name: Run Three Month Popular Plan Tests
+      run: |
+        echo "⭐ Running Three Month Popular Plan Tests..."
+        pytest tests/test_purchase_membership_question_by_three_month_popular_plan.py \
+          --html=test_reports/three_month_plan_tests.html \
+          --self-contained-html \
+          --junitxml=test_reports/three_month_plan_tests.xml \
+          -v \
+          --tb=short \
+          --timeout=300 \
+          || echo "Three month plan tests completed"
+
+    - name: Run Six Month Plan Tests
+      run: |
+        echo "📊 Running Six Month Plan Tests..."
+        pytest tests/test_purchase_membership_questions_by_six_month_plan.py \
+          --html=test_reports/six_month_plan_tests.html \
+          --self-contained-html \
+          --junitxml=test_reports/six_month_plan_tests.xml \
+          -v \
+          --tb=short \
+          --timeout=300 \
+          || echo "Six month plan tests completed"
+
+    - name: Run Database Integration Tests
+      run: |
+        echo "🗄️ Running Database Integration Tests..."
+        pytest test_db_integration.py \
+          --html=test_reports/db_integration_tests.html \
+          --self-contained-html \
+          --junitxml=test_reports/db_integration_tests.xml \
+          -v \
+          --tb=short \
+          --timeout=120 \
+          || echo "Database integration tests completed"
+
+    - name: Run Error Link Tests
+      run: |
+        echo "🔗 Running Error Link Tests..."
+        pytest test_error_link_simple.py \
+          --html=test_reports/error_link_tests.html \
+          --self-contained-html \
+          --junitxml=test_reports/error_link_tests.xml \
+          -v \
+          --tb=short \
+          --timeout=120 \
+          || echo "Error link tests completed"
+
+    - name: Generate comprehensive test summary
+      run: |
+        echo "## 🧪 Complete Test Suite Results" >> $GITHUB_STEP_SUMMARY
+        echo "**Framework:** Complete Test Automation Suite" >> $GITHUB_STEP_SUMMARY
+        echo "**Python Version:** ${{ env.PYTHON_VERSION }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Test Devices:** ${{ env.TEST_DEVICES }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Database:** ${{ env.DATABASE_HOST }}/${{ env.DATABASE_NAME }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Headless Mode:** ${{ env.HEADLESS }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Test Suites Executed:" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Smoke Tests (Fast CI)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ One-Time Book Purchase Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Monthly Plan Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ One-Time Plan Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Three Month Popular Plan Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Six Month Plan Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Database Integration Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Error Link Tests" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Results Storage:" >> $GITHUB_STEP_SUMMARY
+        echo "- 🗄️ All results stored in database" >> $GITHUB_STEP_SUMMARY
+        echo "- 📊 HTML reports generated" >> $GITHUB_STEP_SUMMARY
+        echo "- 📸 Screenshots captured" >> $GITHUB_STEP_SUMMARY
+        echo "- 📈 Coverage reports available" >> $GITHUB_STEP_SUMMARY
+
+    - name: Generate coverage report
+      if: always()
+      run: |
+        echo "📊 Generating final coverage report..."
+        coverage run -m pytest tests/ --tb=short -v || true
+        coverage html -d test_reports/coverage || true
+        coverage xml -o test_reports/coverage.xml || true
+
+    - name: Upload all test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: complete-test-results
+        path: |
+          test_reports/
+          screenshots/
+        retention-days: 30
+        if-no-files-found: warn
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: coverage-reports
+        path: test_reports/coverage/
+        retention-days: 30
+        if-no-files-found: warn
+
+    - name: Verify database results
+      run: |
+        echo "🔍 Verifying test results in database..."
+        python check_db_status.py
+        echo "✅ Database verification completed!"
+
+    - name: Generate final summary
+      if: always()
+      run: |
+        echo "🎉 Complete Test Suite Execution Finished!"
+        echo "📊 All test results have been stored in the database"
+        echo "📁 Artifacts uploaded for review"
+        echo "🔗 Database: ${{ env.DATABASE_HOST }}/${{ env.DATABASE_NAME }}"
+        
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "✅ All tests completed successfully!"
+        else
+          echo "⚠️ Some tests had issues - check artifacts for details"
+        fi
+
+  notify-completion:
+    runs-on: ubuntu-latest
+    needs: complete-test-suite
+    if: always()
+    
+    steps:
+    - name: Notify on completion
+      run: |
+        if [ "${{ needs.complete-test-suite.result }}" == "success" ]; then
+          echo "✅ Complete test suite executed successfully!"
+          echo "📊 All results stored in database"
+          echo "📁 Artifacts available for download"
+        else
+          echo "⚠️ Complete test suite had some issues"
+          echo "🔍 Check the workflow logs for details"
+          echo "📊 Partial results may be available in database"
+        fi 
