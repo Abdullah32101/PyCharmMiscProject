@@ -104,20 +104,22 @@ jobs:
         
         # Quick connectivity test first (5 seconds timeout)
         echo "🧪 Quick connectivity test..."
-        timeout 5 python quick_db_test.py || echo "⚠️ Quick connection failed, skipping database tests"
+        timeout 5 python quick_db_test.py
+        QUICK_TEST_RESULT=$?
         
-        # Only try full initialization if quick test passed
-        if [ $? -eq 0 ]; then
+        if [ $QUICK_TEST_RESULT -eq 0 ]; then
+          echo "✅ Quick connection successful!"
           echo "🧪 Running full database initialization..."
           python init_database.py || echo "⚠️ Database initialization failed"
         else
+          echo "❌ Quick connection failed!"
           echo "⏭️ Skipping database initialization due to connection timeout"
         fi
         
         echo ""
         echo "📊 DATABASE CONNECTION SUMMARY:"
         echo "-" * 40
-        if [ $? -eq 0 ]; then
+        if [ $QUICK_TEST_RESULT -eq 0 ]; then
           echo "✅ Database connection successful!"
           echo "✅ Tests will save results to database"
         else
