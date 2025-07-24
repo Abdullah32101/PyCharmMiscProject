@@ -1,7 +1,7 @@
 # db_config.py
 DB_CONFIG = {
-    "host": "solutionsole.com",
-    "user": "root",
-    "password": "SolutionInn321",
-    "database": "test",
+    "host": "18.235.51.183",
+    "user": "sqa_user",
+    "password": "Hassan123!@#",
+    "database": "solutioninn_testing",
 }
