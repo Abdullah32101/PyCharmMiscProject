@@ -87,10 +87,23 @@ def check_database_status():
         
     except mysql.connector.Error as e:
         print(f"❌ Database connection failed: {e}")
+        print(f"🔍 Error Code: {e.errno}")
+        print(f"🔍 Error Message: {e.msg}")
+        
+        # Provide troubleshooting information
+        print("\n🔧 TROUBLESHOOTING SUGGESTIONS:")
+        print("-" * 40)
+        print("1. Check if database server is running")
+        print("2. Verify firewall allows connections from GitHub Actions")
+        print("3. Check if database accepts remote connections")
+        print("4. Verify credentials and database name")
+        print("5. Check network connectivity")
+        
         return False
         
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
+        print(f"🔍 Error Type: {type(e).__name__}")
         return False
 
 if __name__ == "__main__":

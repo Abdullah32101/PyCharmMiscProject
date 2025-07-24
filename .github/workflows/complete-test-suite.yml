@@ -263,23 +263,36 @@ jobs:
         if-no-files-found: warn
 
     - name: Verify database results
+      id: verify-db
       run: |
         echo "🔍 Verifying test results in database..."
-        python check_db_status.py
-        echo "✅ Database verification completed!"
+        if python check_db_status.py; then
+          echo "✅ Database verification completed successfully!"
+          echo "db_status=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Database verification failed!"
+          echo "🔧 This means test results were NOT saved to database"
+          echo "📋 Check the troubleshooting suggestions above"
+          echo "🌐 You may need to configure database access for GitHub Actions"
+          echo "db_status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
 
     - name: Generate final summary
       if: always()
       run: |
         echo "🎉 Complete Test Suite Execution Finished!"
-        echo "📊 All test results have been stored in the database"
         echo "📁 Artifacts uploaded for review"
         echo "🔗 Database: ${{ env.DATABASE_HOST }}/${{ env.DATABASE_NAME }}"
         
-        if [ "${{ job.status }}" == "success" ]; then
+        # Check if database verification step succeeded
+        if [ "${{ steps.verify-db.outputs.db_status }}" == "success" ]; then
+          echo "✅ All test results have been stored in the database"
           echo "✅ All tests completed successfully!"
         else
-          echo "⚠️ Some tests had issues - check artifacts for details"
+          echo "❌ Test results were NOT saved to database due to connection issues"
+          echo "⚠️ Check database connectivity and firewall settings"
+          echo "📋 Local artifacts are available for review"
         fi
 
   notify-completion:
