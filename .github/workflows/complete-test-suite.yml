@@ -2,6 +2,10 @@ name: Complete Test Suite Execution
 # Run all test suites and store results in database
 
 on:
+  push:
+    branches: [ main, master, test-ci-cd ]
+  pull_request:
+    branches: [ main, master ]
   workflow_dispatch:
     # Manual trigger for complete test suite
     inputs:
