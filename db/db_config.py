@@ -10,8 +10,8 @@ def is_local_environment() -> bool:
     """Check if running in local development environment"""
     return not is_github_actions()
 
-def can_connect_to_host(host: str, port: int, timeout: int = 5) -> bool:
-    """Test if we can connect to a host:port"""
+def can_connect_to_host(host: str, port: int, timeout: int = 10) -> bool:
+    """Test if we can connect to a host:port with longer timeout"""
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(timeout)
@@ -28,32 +28,72 @@ def get_database_config() -> Dict[str, Any]:
     if is_github_actions():
         print("🔧 Detected GitHub Actions environment")
         
-        # Try to connect to the remote database first
-        if can_connect_to_host("18.235.51.183", 3306):
-            print("✅ Remote database is accessible from GitHub Actions")
-            return {
-                "host": "18.235.51.183",
-                "user": "sqa_user",
-                "password": "Hassan123!@#",
-                "database": "solutioninn_testing",
-                "port": 3306,
-                "autocommit": True,
-                "charset": "utf8mb4"
+        # For GitHub Actions, try multiple database options
+        database_options = [
+            # Option 1: Remote database (primary)
+            {
+                "name": "Remote Database (18.235.51.183)",
+                "config": {
+                    "host": "18.235.51.183",
+                    "user": "sqa_user",
+                    "password": "Hassan123!@#",
+                    "database": "solutioninn_testing",
+                    "port": 3306,
+                    "autocommit": True,
+                    "charset": "utf8mb4"
+                }
+            },
+            # Option 2: Alternative remote database
+            {
+                "name": "Alternative Remote Database (solutionsole.com)",
+                "config": {
+                    "host": "solutionsole.com",
+                    "user": "root",
+                    "password": "SolutionInn321",
+                    "database": "test",
+                    "port": 3306,
+                    "autocommit": True,
+                    "charset": "utf8mb4"
+                }
+            },
+            # Option 3: Local test database (fallback)
+            {
+                "name": "Local Test Database",
+                "config": {
+                    "host": os.getenv("TEST_DB_HOST", "127.0.0.1"),
+                    "user": os.getenv("TEST_DB_USER", "root"),
+                    "password": os.getenv("TEST_DB_PASSWORD", "root"),
+                    "database": os.getenv("TEST_DB_NAME", "test_results"),
+                    "port": int(os.getenv("TEST_DB_PORT", "3306")),
+                    "autocommit": True,
+                    "charset": "utf8mb4"
+                }
             }
-        else:
-            print("⚠️ Remote database not accessible from GitHub Actions")
-            print("🔧 Using local test configuration")
+        ]
+        
+        # Try each database option
+        for option in database_options:
+            print(f"🔍 Testing connection to: {option['name']}")
+            host = option['config']['host']
+            port = option['config']['port']
             
-            # Use environment variables for local test database
-            return {
-                "host": os.getenv("TEST_DB_HOST", "localhost"),
-                "user": os.getenv("TEST_DB_USER", "root"),
-                "password": os.getenv("TEST_DB_PASSWORD", ""),
-                "database": os.getenv("TEST_DB_NAME", "test_results"),
-                "port": int(os.getenv("TEST_DB_PORT", "3306")),
-                "autocommit": True,
-                "charset": "utf8mb4"
-            }
+            if can_connect_to_host(host, port):
+                print(f"✅ {option['name']} is accessible")
+                return option['config']
+            else:
+                print(f"❌ {option['name']} is not accessible")
+        
+        # If none work, use the local test database as final fallback
+        print("⚠️ No remote databases accessible, using local test database")
+        return {
+            "host": "127.0.0.1",
+            "user": "root",
+            "password": "root",
+            "database": "test_results",
+            "port": 3306,
+            "autocommit": True,
+            "charset": "utf8mb4"
+        }
     
     # Local development environment
     else:
