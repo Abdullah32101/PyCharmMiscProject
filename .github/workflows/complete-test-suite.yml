@@ -1,394 +1,121 @@
-name: Complete Test Suite Execution
-# Run all test suites and store results in database
+name: Complete Test Suite Runner
 
 on:
   push:
-    branches: [ main, master, test-ci-cd ]
+    branches: [ test-ci-cd ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ test-ci-cd ]
   workflow_dispatch:
-    # Manual trigger for complete test suite
-    inputs:
-      test_type:
-        description: 'Type of test to run'
-        required: true
-        default: 'all'
-        type: choice
-        options:
-        - all
-        - membership_plans
-        - book_purchase
-        - smoke_tests
-  schedule:
-    # Run complete test suite daily at 8 AM UTC
-    - cron: '0 8 * * *'
-
-env:
-  PYTHON_VERSION: '3.9'
-  HEADLESS: 'true'
-  MOBILE_TEST: 'true'
-  TEST_DEVICES: 'desktop,iPhone X,iPad Pro'
-  DATABASE_HOST: '18.235.51.183'
-  DATABASE_NAME: 'solutioninn_testing'
 
 jobs:
-  complete-test-suite:
+  test:
     runs-on: ubuntu-latest
-    # Enhanced permissions to prevent email verification issues
-    permissions:
-      contents: read
-      issues: write
-      pull-requests: read
-      actions: read
-      security-events: write
     
-    # Add concurrency to prevent multiple runs
-    concurrency:
-      group: complete-test-suite-${{ github.ref }}
-      cancel-in-progress: true
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: test_results
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_pass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
 
-    - name: Set up Python ${{ env.PYTHON_VERSION }}
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Install Chrome and dependencies
-      run: |
-        # Install Chrome
-        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add - || true
-        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-        sudo apt-get update
-        sudo apt-get install -y google-chrome-stable || sudo apt-get install -y chromium-browser
-        
-        # Install system dependencies
-        sudo apt-get install -y default-mysql-client xvfb
-
-    - name: Cache pip dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-
-    - name: Install Python dependencies
+        python-version: '3.9'
+    
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest-html pytest-xdist pytest-cov coverage pytest-timeout
-
-    - name: Create database configuration
+        pip install pytest pytest-timeout selenium mysql-connector-python
+    
+    - name: Wait for MySQL to be ready
       run: |
-        mkdir -p db
-        cat > db/db_config.py << EOF
-        DB_CONFIG = {
-            'host': '${{ env.DATABASE_HOST }}',
-            'user': 'sqa_user',
-            'password': 'Hassan123!@#',
-            'database': '${{ env.DATABASE_NAME }}'
-        }
-        EOF
-
-    - name: Initialize database and verify connection
+        echo "⏳ Waiting for MySQL to be ready..."
+        while ! mysqladmin ping -h"127.0.0.1" -P"3306" --silent; do
+          sleep 1
+        done
+        echo "✅ MySQL is ready!"
+    
+    - name: Set up test database
+      run: |
+        echo "🔧 Setting up test database..."
+        mysql -h 127.0.0.1 -P 3306 -u root -proot -e "
+          CREATE DATABASE IF NOT EXISTS test_results;
+          USE test_results;
+          CREATE TABLE IF NOT EXISTS test_results (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            test_name VARCHAR(255) NOT NULL,
+            status ENUM('PASSED', 'FAILED', 'SKIPPED') NOT NULL,
+            device_type VARCHAR(50),
+            screen_resolution VARCHAR(50),
+            execution_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            error_message TEXT,
+            error_link TEXT,
+            test_duration FLOAT,
+            browser_type VARCHAR(50),
+            os_type VARCHAR(50)
+          );
+          GRANT ALL PRIVILEGES ON test_results.* TO 'test_user'@'%';
+          FLUSH PRIVILEGES;
+        "
+        echo "✅ Test database setup complete!"
+    
+    - name: Set database environment variables
+      run: |
+        echo "🔧 Setting database environment variables..."
+        echo "TEST_DB_HOST=127.0.0.1" >> $GITHUB_ENV
+        echo "TEST_DB_USER=test_user" >> $GITHUB_ENV
+        echo "TEST_DB_PASSWORD=test_pass" >> $GITHUB_ENV
+        echo "TEST_DB_NAME=test_results" >> $GITHUB_ENV
+        echo "TEST_DB_PORT=3306" >> $GITHUB_ENV
+    
+    - name: Test database connection
+      run: |
+        echo "🔗 Testing database connection..."
+        python test_database_connection.py
       continue-on-error: true
-      timeout-minutes: 2
-      run: |
-        echo "🔗 Testing database connection to ${{ env.DATABASE_HOST }}..."
-        echo "⏱️ This step has a 2-minute timeout"
-        echo "⚠️ This step will continue even if it fails"
-        echo ""
-        
-        # Run robust connectivity test with better error handling
-        echo "🧪 Running robust database connection test..."
-        python test_db_connection_robust.py
-        ROBUST_TEST_RESULT=$?
-        
-        if [ $ROBUST_TEST_RESULT -eq 0 ]; then
-          echo "✅ Robust connection test successful!"
-          echo "🧪 Running full database initialization..."
-          python init_database.py || echo "⚠️ Database initialization failed"
-        else
-          echo "❌ Robust connection test failed!"
-          echo "⏭️ Skipping database initialization due to connection timeout"
-          echo ""
-          echo "🔧 TROUBLESHOOTING STEPS:"
-          echo "1. SSH into your database server (18.235.51.183)"
-          echo "2. Run: sudo ufw allow 3306"
-          echo "3. Check: grep bind-address /etc/mysql/mysql.conf.d/mysqld.cnf"
-          echo "4. Ensure: bind-address = 0.0.0.0"
-          echo "5. Restart MySQL: sudo systemctl restart mysql"
-          echo "6. Grant permissions: GRANT ALL PRIVILEGES ON solutioninn_testing.* TO 'sqa_user'@'%';"
-        fi
-        
-        echo ""
-        echo "📊 DATABASE CONNECTION SUMMARY:"
-        echo "-" * 40
-        if [ $ROBUST_TEST_RESULT -eq 0 ]; then
-          echo "✅ Database connection successful!"
-          echo "✅ Tests will save results to database"
-        else
-          echo "❌ Database connection failed!"
-          echo "⚠️ Tests will run but results will NOT be saved to database"
-          echo "🔧 See troubleshooting steps above for resolution"
-        fi
-
-    - name: Create test reports directory
-      run: |
-        mkdir -p test_reports
-        mkdir -p screenshots
-        mkdir -p test_reports/coverage
-
-    - name: Run Comprehensive Test Suite Runner
-      if: github.event.inputs.test_suite == 'all' || github.event.inputs.test_suite == ''
+    
+    - name: Run comprehensive test suite
       run: |
         echo "🚀 Running Comprehensive Test Suite Runner..."
-        echo "📅 Test Time: $(date)"
-        echo "🖥️ Environment: Ubuntu Latest"
-        echo "🐍 Python: ${{ env.PYTHON_VERSION }}"
-        echo "🔧 Headless Mode: ${{ env.HEADLESS }}"
-        echo "🗄️ Database: 18.235.51.183"
-        echo ""
-        
-        # Run database troubleshooting first
-        echo "🔍 Running database connection diagnostics..."
-        python fix_database_connection.py || echo "⚠️ Database diagnostics completed with warnings"
-        
-        # Run comprehensive test suite runner (will handle DB connection gracefully)
-        echo "🧪 Running comprehensive test suite runner..."
         python run_all_test_suites.py
-        
-        echo "✅ Comprehensive test suite runner completed!"
-
-    - name: Run Smoke Tests (Fast CI)
-      run: |
-        echo "🧪 Running Smoke Tests..."
-        pytest tests/test_ci_smoke.py \
-          --html=test_reports/smoke_tests.html \
-          --self-contained-html \
-          --junitxml=test_reports/smoke_tests.xml \
-          --cov=. \
-          --cov-report=html:test_reports/coverage \
-          --cov-report=xml:test_reports/coverage.xml \
-          --cov-report=term-missing \
-          -v \
-          --tb=short \
-          --timeout=120 \
-          || echo "Smoke tests completed"
-
-    - name: Run One-Time Book Purchase Tests
-      run: |
-        echo "📚 Running One-Time Book Purchase Tests..."
-        pytest tests/test_one_time_book_purchase.py \
-          --html=test_reports/book_purchase_tests.html \
-          --self-contained-html \
-          --junitxml=test_reports/book_purchase_tests.xml \
-          -v \
-          --tb=short \
-          --timeout=300 \
-          || echo "Book purchase tests completed"
-
-    - name: Run Monthly Plan Tests
-      run: |
-        echo "📅 Running Monthly Plan Tests..."
-        pytest tests/test_purchase_membership_question_by_monthly_plan.py \
-          --html=test_reports/monthly_plan_tests.html \
-          --self-contained-html \
-          --junitxml=test_reports/monthly_plan_tests.xml \
-          -v \
-          --tb=short \
-          --timeout=300 \
-          || echo "Monthly plan tests completed"
-
-    - name: Run One-Time Plan Tests
-      run: |
-        echo "🎯 Running One-Time Plan Tests..."
-        pytest tests/test_purchase_membership_question_by_one_time_plan.py \
-          --html=test_reports/onetime_plan_tests.html \
-          --self-contained-html \
-          --junitxml=test_reports/onetime_plan_tests.xml \
-          -v \
-          --tb=short \
-          --timeout=300 \
-          || echo "One-time plan tests completed"
-
-    - name: Run Three Month Popular Plan Tests
-      run: |
-        echo "⭐ Running Three Month Popular Plan Tests..."
-        pytest tests/test_purchase_membership_question_by_three_month_popular_plan.py \
-          --html=test_reports/three_month_plan_tests.html \
-          --self-contained-html \
-          --junitxml=test_reports/three_month_plan_tests.xml \
-          -v \
-          --tb=short \
-          --timeout=300 \
-          || echo "Three month plan tests completed"
-
-    - name: Run Six Month Plan Tests
-      run: |
-        echo "📊 Running Six Month Plan Tests..."
-        pytest tests/test_purchase_membership_questions_by_six_month_plan.py \
-          --html=test_reports/six_month_plan_tests.html \
-          --self-contained-html \
-          --junitxml=test_reports/six_month_plan_tests.xml \
-          -v \
-          --tb=short \
-          --timeout=300 \
-          || echo "Six month plan tests completed"
-
-    - name: Run Database Integration Tests
-      run: |
-        echo "🗄️ Running Database Integration Tests..."
-        pytest test_db_integration.py \
-          --html=test_reports/db_integration_tests.html \
-          --self-contained-html \
-          --junitxml=test_reports/db_integration_tests.xml \
-          -v \
-          --tb=short \
-          --timeout=120 \
-          || echo "Database integration tests completed"
-
-    - name: Run Error Link Tests
-      run: |
-        echo "🔗 Running Error Link Tests..."
-        pytest test_error_link_simple.py \
-          --html=test_reports/error_link_tests.html \
-          --self-contained-html \
-          --junitxml=test_reports/error_link_tests.xml \
-          -v \
-          --tb=short \
-          --timeout=120 \
-          || echo "Error link tests completed"
-
-    - name: Generate comprehensive test summary
-      run: |
-        echo "## 🧪 Complete Test Suite Results" >> $GITHUB_STEP_SUMMARY
-        echo "**Framework:** Complete Test Automation Suite" >> $GITHUB_STEP_SUMMARY
-        echo "**Python Version:** ${{ env.PYTHON_VERSION }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Test Devices:** ${{ env.TEST_DEVICES }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Database:** ${{ env.DATABASE_HOST }}/${{ env.DATABASE_NAME }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Headless Mode:** ${{ env.HEADLESS }}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Test Suites Executed:" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Smoke Tests (Fast CI)" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ One-Time Book Purchase Tests" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Monthly Plan Tests" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ One-Time Plan Tests" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Three Month Popular Plan Tests" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Six Month Plan Tests" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Database Integration Tests" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Error Link Tests" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Results Storage:" >> $GITHUB_STEP_SUMMARY
-        echo "- 🗄️ All results stored in database" >> $GITHUB_STEP_SUMMARY
-        echo "- 📊 HTML reports generated" >> $GITHUB_STEP_SUMMARY
-        echo "- 📸 Screenshots captured" >> $GITHUB_STEP_SUMMARY
-        echo "- 📈 Coverage reports available" >> $GITHUB_STEP_SUMMARY
-
-    - name: Generate coverage report
-      if: always()
-      run: |
-        echo "📊 Generating final coverage report..."
-        coverage run -m pytest tests/ --tb=short -v || true
-        coverage html -d test_reports/coverage || true
-        coverage xml -o test_reports/coverage.xml || true
-
-    - name: Upload all test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: complete-test-results
-        path: |
-          test_reports/
-          screenshots/
-        retention-days: 30
-        if-no-files-found: warn
-
-    - name: Upload coverage reports
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: coverage-reports
-        path: test_reports/coverage/
-        retention-days: 30
-        if-no-files-found: warn
-
-    - name: Capture all test logs
-      id: capture-logs
-      continue-on-error: true
-      run: |
-        echo "🔍 Capturing all test logs and storing in database..."
-        echo "📋 This will capture:"
-        echo "   - Complete test suite execution logs"
-        echo "   - GitHub Actions workflow logs"
-        echo "   - Test execution logs"
-        echo "   - Git commit information"
-        echo "   - Environment details"
-        echo "   - Test artifacts and reports"
-        echo ""
-        
-        # Run comprehensive log capture
-        if python capture_all_test_logs.py; then
-          echo "✅ All test logs captured and stored in database!"
-          echo "log_capture=success" >> $GITHUB_OUTPUT
-        else
-          echo "❌ Log capture failed!"
-          echo "log_capture=failed" >> $GITHUB_OUTPUT
-          echo "⚠️ Continuing workflow despite log capture failure"
-        fi
-
-    - name: Verify database results
-      id: verify-db
-      continue-on-error: true
-      run: |
-        echo "🔍 Verifying test results in database..."
-        if python check_db_status.py; then
-          echo "✅ Database verification completed successfully!"
-          echo "db_status=success" >> $GITHUB_OUTPUT
-        else
-          echo "❌ Database verification failed!"
-          echo "🔧 This means test results were NOT saved to database"
-          echo "📋 Check the troubleshooting suggestions above"
-          echo "🌐 You may need to configure database access for GitHub Actions"
-          echo "db_status=failed" >> $GITHUB_OUTPUT
-          echo "⚠️ Continuing workflow despite database verification failure"
-        fi
-
-    - name: Generate final summary
-      if: always()
-      run: |
-        echo "🎉 Complete Test Suite Execution Finished!"
-        echo "📁 Artifacts uploaded for review"
-        echo "🔗 Database: ${{ env.DATABASE_HOST }}/${{ env.DATABASE_NAME }}"
-        
-        # Check if database verification step succeeded
-        if [ "${{ steps.verify-db.outputs.db_status }}" == "success" ]; then
-          echo "✅ All test results have been stored in the database"
-          echo "✅ All tests completed successfully!"
-        else
-          echo "❌ Test results were NOT saved to database due to connection issues"
-          echo "⚠️ Database connection failed during execution"
-          echo "📋 Local artifacts are available for review"
-          echo "🔧 Follow the troubleshooting guide: DATABASE_CONNECTION_TROUBLESHOOTING.md"
-        fi
-
-  notify-completion:
-    runs-on: ubuntu-latest
-    needs: complete-test-suite
-    if: always()
+      env:
+        GITHUB_ACTIONS: true
+        TEST_DB_HOST: 127.0.0.1
+        TEST_DB_USER: test_user
+        TEST_DB_PASSWORD: test_pass
+        TEST_DB_NAME: test_results
+        TEST_DB_PORT: 3306
     
-    steps:
-    - name: Notify on completion
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: |
+          screenshots/
+          *.png
+          *.html
+          test_logs/
+    
+    - name: Show test summary
+      if: always()
       run: |
-        if [ "${{ needs.complete-test-suite.result }}" == "success" ]; then
-          echo "✅ Complete test suite executed successfully!"
-          echo "📊 All results stored in database"
-          echo "📁 Artifacts available for download"
+        echo "📊 Test Summary:"
+        if [ -f "test_summary.txt" ]; then
+          cat test_summary.txt
         else
-          echo "⚠️ Complete test suite had some issues"
-          echo "🔍 Check the workflow logs for details"
-          echo "📊 Partial results may be available in database"
+          echo "No test summary file found"
         fi 

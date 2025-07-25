@@ -4,12 +4,13 @@ from datetime import datetime
 
 import mysql.connector
 
-from .db_config import DB_CONFIG
+from .db_config import get_database_config
 
 
 class MySQLHelper:
     def __init__(self):
-        self.conn = mysql.connector.connect(**DB_CONFIG)
+        config = get_database_config()
+        self.conn = mysql.connector.connect(**config)
         self.cursor = self.conn.cursor(dictionary=True)
 
     def create_test_results_table(self):
