@@ -142,6 +142,22 @@ jobs:
         mkdir -p screenshots
         mkdir -p test_reports/coverage
 
+    - name: Run Comprehensive Test Suite Runner
+      if: github.event.inputs.test_suite == 'all' || github.event.inputs.test_suite == ''
+      run: |
+        echo "🚀 Running Comprehensive Test Suite Runner..."
+        echo "📅 Test Time: $(date)"
+        echo "🖥️ Environment: Ubuntu Latest"
+        echo "🐍 Python: ${{ env.PYTHON_VERSION }}"
+        echo "🔧 Headless Mode: ${{ env.HEADLESS }}"
+        echo "🗄️ Database: 18.235.51.183"
+        echo ""
+        
+        # Run comprehensive test suite runner
+        python run_all_test_suites.py
+        
+        echo "✅ Comprehensive test suite runner completed!"
+
     - name: Run Smoke Tests (Fast CI)
       run: |
         echo "🧪 Running Smoke Tests..."

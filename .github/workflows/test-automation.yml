@@ -94,6 +94,10 @@ jobs:
         # Create test reports directory
         mkdir -p test_reports
         
+        # Run comprehensive test suite runner
+        echo "🚀 Running Comprehensive Test Suite Runner..."
+        python run_all_test_suites.py
+        
         # Run tests with better error handling
         pytest tests/test_ci_smoke.py \
           --html=test_reports/report.html \
