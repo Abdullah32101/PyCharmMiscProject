@@ -11,14 +11,31 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
-from db.db_helper import MySQLHelper
+try:
+    from db.db_helper import MySQLHelper
+    DB_AVAILABLE = True
+except Exception as e:
+    print(f"⚠️ Database connection not available: {e}")
+    print("📝 Tests will run but results will not be stored in database")
+    DB_AVAILABLE = False
 
 
 class TestSuiteRunner:
     def __init__(self):
-        self.db_helper = MySQLHelper()
         self.test_results = []
         self.start_time = datetime.now()
+        
+        # Initialize database connection if available
+        if DB_AVAILABLE:
+            try:
+                self.db_helper = MySQLHelper()
+                print("✅ Database connection established")
+            except Exception as e:
+                print(f"❌ Database connection failed: {e}")
+                self.db_helper = None
+        else:
+            self.db_helper = None
+            print("⚠️ Running without database storage")
         
     def run_all_test_suites(self):
         """Run all test suites and store results"""
@@ -78,10 +95,10 @@ class TestSuiteRunner:
         start_time = time.time()
         
         try:
-            # Run pytest with detailed output
+            # Run pytest with detailed output (without timeout plugin)
             result = subprocess.run([
                 'python', '-m', 'pytest', suite['file'],
-                '-v', '--tb=short', '--timeout=300'
+                '-v', '--tb=short'
             ], capture_output=True, text=True, timeout=600)
             
             end_time = time.time()
@@ -95,16 +112,19 @@ class TestSuiteRunner:
                 test_status = "FAILED"
                 print(f"❌ {suite['name']} - FAILED ({duration:.2f}s)")
             
-            # Store result in database
-            self._store_test_result(
-                test_case_name=f"test_suite_{suite['name'].lower().replace(' ', '_')}",
-                module_name=suite['file'],
-                test_status=test_status,
-                error_message=f"Test Suite: {suite['name']}\nDescription: {suite['description']}\nDuration: {duration:.2f}s\n\nOutput:\n{result.stdout}\n\nErrors:\n{result.stderr}",
-                total_time_duration=duration,
-                device_name="github_actions" if os.getenv('GITHUB_ACTIONS') else "local_environment",
-                screen_resolution="ci_environment" if os.getenv('GITHUB_ACTIONS') else "local_system"
-            )
+            # Store result in database if available
+            if self.db_helper:
+                self._store_test_result(
+                    test_case_name=f"test_suite_{suite['name'].lower().replace(' ', '_')}",
+                    module_name=suite['file'],
+                    test_status=test_status,
+                    error_message=f"Test Suite: {suite['name']}\nDescription: {suite['description']}\nDuration: {duration:.2f}s\n\nOutput:\n{result.stdout}\n\nErrors:\n{result.stderr}",
+                    total_time_duration=duration,
+                    device_name="github_actions" if os.getenv('GITHUB_ACTIONS') else "local_environment",
+                    screen_resolution="ci_environment" if os.getenv('GITHUB_ACTIONS') else "local_system"
+                )
+            else:
+                print(f"📝 Test result (not stored in DB): {test_status} ({duration:.2f}s)")
             
             # Store in results list
             self.test_results.append({
@@ -122,15 +142,16 @@ class TestSuiteRunner:
             
             print(f"⏰ {suite['name']} - TIMEOUT ({duration:.2f}s)")
             
-            self._store_test_result(
-                test_case_name=f"test_suite_{suite['name'].lower().replace(' ', '_')}",
-                module_name=suite['file'],
-                test_status=test_status,
-                error_message=error_message,
-                total_time_duration=duration,
-                device_name="github_actions" if os.getenv('GITHUB_ACTIONS') else "local_environment",
-                screen_resolution="ci_environment" if os.getenv('GITHUB_ACTIONS') else "local_system"
-            )
+            if self.db_helper:
+                self._store_test_result(
+                    test_case_name=f"test_suite_{suite['name'].lower().replace(' ', '_')}",
+                    module_name=suite['file'],
+                    test_status=test_status,
+                    error_message=error_message,
+                    total_time_duration=duration,
+                    device_name="github_actions" if os.getenv('GITHUB_ACTIONS') else "local_environment",
+                    screen_resolution="ci_environment" if os.getenv('GITHUB_ACTIONS') else "local_system"
+                )
             
             self.test_results.append({
                 'name': suite['name'],
@@ -147,15 +168,16 @@ class TestSuiteRunner:
             
             print(f"💥 {suite['name']} - ERROR ({duration:.2f}s)")
             
-            self._store_test_result(
-                test_case_name=f"test_suite_{suite['name'].lower().replace(' ', '_')}",
-                module_name=suite['file'],
-                test_status=test_status,
-                error_message=error_message,
-                total_time_duration=duration,
-                device_name="github_actions" if os.getenv('GITHUB_ACTIONS') else "local_environment",
-                screen_resolution="ci_environment" if os.getenv('GITHUB_ACTIONS') else "local_system"
-            )
+            if self.db_helper:
+                self._store_test_result(
+                    test_case_name=f"test_suite_{suite['name'].lower().replace(' ', '_')}",
+                    module_name=suite['file'],
+                    test_status=test_status,
+                    error_message=error_message,
+                    total_time_duration=duration,
+                    device_name="github_actions" if os.getenv('GITHUB_ACTIONS') else "local_environment",
+                    screen_resolution="ci_environment" if os.getenv('GITHUB_ACTIONS') else "local_system"
+                )
             
             self.test_results.append({
                 'name': suite['name'],
@@ -197,15 +219,16 @@ class TestSuiteRunner:
             
             print(f"{'✅' if test_status == 'PASSED' else '❌'} {test_file} - {test_status} ({duration:.2f}s)")
             
-            self._store_test_result(
-                test_case_name=f"additional_test_{Path(test_file).stem}",
-                module_name=test_file,
-                test_status=test_status,
-                error_message=f"Test File: {test_file}\nDuration: {duration:.2f}s\n\nOutput:\n{result.stdout}\n\nErrors:\n{result.stderr}",
-                total_time_duration=duration,
-                device_name="github_actions" if os.getenv('GITHUB_ACTIONS') else "local_environment",
-                screen_resolution="ci_environment" if os.getenv('GITHUB_ACTIONS') else "local_system"
-            )
+            if self.db_helper:
+                self._store_test_result(
+                    test_case_name=f"additional_test_{Path(test_file).stem}",
+                    module_name=test_file,
+                    test_status=test_status,
+                    error_message=f"Test File: {test_file}\nDuration: {duration:.2f}s\n\nOutput:\n{result.stdout}\n\nErrors:\n{result.stderr}",
+                    total_time_duration=duration,
+                    device_name="github_actions" if os.getenv('GITHUB_ACTIONS') else "local_environment",
+                    screen_resolution="ci_environment" if os.getenv('GITHUB_ACTIONS') else "local_system"
+                )
             
         except Exception as e:
             duration = time.time() - start_time
@@ -213,19 +236,24 @@ class TestSuiteRunner:
             
             print(f"💥 {test_file} - ERROR ({duration:.2f}s)")
             
-            self._store_test_result(
-                test_case_name=f"additional_test_{Path(test_file).stem}",
-                module_name=test_file,
-                test_status="ERROR",
-                error_message=error_message,
-                total_time_duration=duration,
-                device_name="github_actions" if os.getenv('GITHUB_ACTIONS') else "local_environment",
-                screen_resolution="ci_environment" if os.getenv('GITHUB_ACTIONS') else "local_system"
-            )
+            if self.db_helper:
+                self._store_test_result(
+                    test_case_name=f"additional_test_{Path(test_file).stem}",
+                    module_name=test_file,
+                    test_status="ERROR",
+                    error_message=error_message,
+                    total_time_duration=duration,
+                    device_name="github_actions" if os.getenv('GITHUB_ACTIONS') else "local_environment",
+                    screen_resolution="ci_environment" if os.getenv('GITHUB_ACTIONS') else "local_system"
+                )
     
     def _store_test_result(self, test_case_name, module_name, test_status, error_message=None,
                           total_time_duration=None, device_name=None, screen_resolution=None, error_link=None):
         """Store test result in database"""
+        if not self.db_helper:
+            print(f"📝 Skipping database storage for {test_case_name} (DB not available)")
+            return
+            
         try:
             self.db_helper.store_test_result_in_tables(
                 test_case_name=test_case_name,
@@ -262,7 +290,7 @@ class TestSuiteRunner:
         print(f"❌ Failed: {failed}")
         print(f"💥 Errors: {errors}")
         
-        # Store summary in database
+        # Store summary in database if available
         summary_message = f"""Test Execution Summary:
 Total Duration: {total_duration:.2f}s
 Start Time: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}
@@ -278,24 +306,33 @@ Detailed Results:
         for result in self.test_results:
             summary_message += f"- {result['name']}: {result['status']} ({result['duration']:.2f}s)\n"
         
-        self._store_test_result(
-            test_case_name="test_execution_summary",
-            module_name="test_suite_runner",
-            test_status="PASSED" if failed == 0 and errors == 0 else "FAILED",
-            error_message=summary_message,
-            total_time_duration=total_duration,
-            device_name="github_actions" if os.getenv('GITHUB_ACTIONS') else "local_environment",
-            screen_resolution="ci_environment" if os.getenv('GITHUB_ACTIONS') else "local_system"
-        )
+        if self.db_helper:
+            self._store_test_result(
+                test_case_name="test_execution_summary",
+                module_name="test_suite_runner",
+                test_status="PASSED" if failed == 0 and errors == 0 else "FAILED",
+                error_message=summary_message,
+                total_time_duration=total_duration,
+                device_name="github_actions" if os.getenv('GITHUB_ACTIONS') else "local_environment",
+                screen_resolution="ci_environment" if os.getenv('GITHUB_ACTIONS') else "local_system"
+            )
         
         print(f"\n🎉 Test execution completed!")
-        print(f"📊 Results stored in database: {passed + failed + errors} test suites")
+        if self.db_helper:
+            print(f"📊 Results stored in database: {passed + failed + errors} test suites")
+        else:
+            print(f"📊 Results available locally: {passed + failed + errors} test suites")
+            print(f"⚠️ Database storage not available - results not persisted")
         
-        # Show recent database results
-        self._show_recent_results()
+        # Show recent database results if available
+        if self.db_helper:
+            self._show_recent_results()
     
     def _show_recent_results(self):
         """Show recent test results from database"""
+        if not self.db_helper:
+            return
+            
         try:
             results = self.db_helper.get_test_results(limit=10)
             
@@ -311,7 +348,8 @@ Detailed Results:
     
     def close(self):
         """Close database connection"""
-        self.db_helper.close()
+        if self.db_helper:
+            self.db_helper.close()
 
 
 def main():
@@ -329,7 +367,11 @@ def main():
         # Close connections
         runner.close()
         
-        print(f"\n🎉 All test suites executed and results stored in database!")
+        print(f"\n🎉 All test suites executed!")
+        if DB_AVAILABLE and runner.db_helper:
+            print(f"📊 Results stored in database!")
+        else:
+            print(f"⚠️ Results available locally only (database not accessible)")
         
     except Exception as e:
         print(f"❌ Test suite execution failed: {e}")

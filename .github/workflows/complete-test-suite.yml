@@ -153,7 +153,12 @@ jobs:
         echo "🗄️ Database: 18.235.51.183"
         echo ""
         
-        # Run comprehensive test suite runner
+        # Run database troubleshooting first
+        echo "🔍 Running database connection diagnostics..."
+        python fix_database_connection.py || echo "⚠️ Database diagnostics completed with warnings"
+        
+        # Run comprehensive test suite runner (will handle DB connection gracefully)
+        echo "🧪 Running comprehensive test suite runner..."
         python run_all_test_suites.py
         
         echo "✅ Comprehensive test suite runner completed!"
