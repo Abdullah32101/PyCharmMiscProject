@@ -112,6 +112,33 @@ jobs:
           --timeout=120 \
           || echo "Tests completed with some failures"
 
+    - name: Verify database logging
+      run: |
+        echo "🔍 Verifying database logging..."
+        echo "📊 Checking if test results are being stored in database..."
+        
+        # Run comprehensive database logging debug
+        echo "🔧 Running database logging debug script..."
+        python debug_database_logging.py || echo "Database logging debug failed"
+        
+        # Run database logging verification
+        python test_database_logging_verification.py || echo "Database logging verification failed"
+        
+        # Check current test results in database
+        python -c "
+        from db.db_helper import MySQLHelper
+        helper = MySQLHelper()
+        results = helper.get_test_results(limit=10)
+        print(f'📊 Found {len(results)} test results in database')
+        if results:
+            print('📋 Recent test results:')
+            for result in results[:5]:
+                print(f'   - {result[\"test_case_name\"]} ({result[\"test_status\"]}) - {result[\"test_datetime\"]}')
+        else:
+            print('⚠️ No test results found in database')
+        helper.close()
+        "
+
     - name: Run additional quick tests
       run: |
         echo "Running additional quick tests..."

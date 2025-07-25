@@ -382,6 +382,17 @@ def driver(request):
     chrome_options.add_argument("--disable-renderer-backgrounding")
     chrome_options.add_argument("--disable-features=TranslateUI")
     chrome_options.add_argument("--disable-ipc-flooding-protection")
+    
+    # Fix for GitHub Actions: Use unique user data directory
+    import tempfile
+    import os
+    if os.getenv('GITHUB_ACTIONS') == 'true':
+        # Create unique temporary directory for each test
+        temp_dir = tempfile.mkdtemp(prefix='chrome_user_data_')
+        chrome_options.add_argument(f"--user-data-dir={temp_dir}")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--headless")  # Force headless in CI
+        print(f"[🔧] Using unique user data directory: {temp_dir}")
 
     driver = webdriver.Chrome(
         service=Service(ChromeDriverManager().install()), options=chrome_options

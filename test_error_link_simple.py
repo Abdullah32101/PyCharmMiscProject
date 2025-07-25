@@ -45,5 +45,5 @@ if __name__ == "__main__":
     print("🧪 Simple Error Link Test")
     print("=" * 50)
 
-    # Run the failing test
-    pytest.main([__file__, "::test_simple_failure", "-v"])
+    # Run the tests
+    pytest.main([__file__, "-v"])

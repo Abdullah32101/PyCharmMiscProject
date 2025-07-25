@@ -1,62 +1,95 @@
 #!/usr/bin/env python3
 """
 Simple Database Connection Test
+This script tests the database connection and verifies that logs can be stored.
 """
 
-import mysql.connector
-from db.db_config import DB_CONFIG
+import sys
+import os
+from datetime import datetime
 
-def test_connection():
-    """Test basic database connection"""
+# Add the current directory to Python path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+def test_database_connection():
+    """Test database connection and basic logging"""
+    print("🔧 Testing Database Connection and Logging")
+    print("=" * 50)
+    
     try:
-        print("🔌 Testing database connection...")
-        conn = mysql.connector.connect(**DB_CONFIG)
-        cursor = conn.cursor(dictionary=True)
+        from db.db_helper import MySQLHelper
         
-        # Test basic query
-        cursor.execute("SELECT 1 as test")
-        result = cursor.fetchone()
-        print("✅ Database connection successful")
+        # Initialize database helper
+        print("📡 Connecting to database...")
+        db_helper = MySQLHelper()
         
-        # Test table creation
-        print("\n📋 Creating test_results table...")
-        create_table_query = """
-        CREATE TABLE IF NOT EXISTS test_results (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            test_case_name VARCHAR(255) NOT NULL,
-            module_name VARCHAR(255) NOT NULL,
-            test_status ENUM('PASSED', 'FAILED', 'SKIPPED', 'ERROR') NOT NULL,
-            test_datetime DATETIME NOT NULL,
-            error_message TEXT,
-            error_summary VARCHAR(255),
-            total_time_duration DECIMAL(10,3) NULL,
-            device_name VARCHAR(50) NULL,
-            screen_resolution VARCHAR(50) NULL,
-            error_link VARCHAR(500) NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
+        # Create test results table if it doesn't exist
+        print("📋 Creating test results table...")
+        db_helper.create_test_results_table()
+        
+        # Get current test count
+        initial_results = db_helper.get_test_results(limit=10)
+        initial_count = len(initial_results)
+        print(f"📊 Current test results in database: {initial_count}")
+        
+        # Store a test log entry
+        test_message = f"""
+Database Connection Test
+Timestamp: {datetime.now()}
+Purpose: Verify database logging functionality
+Status: PASSED
+Environment: GitHub Actions
         """
-        cursor.execute(create_table_query)
-        conn.commit()
-        print("✅ test_results table created/verified")
         
-        # Check existing tables
-        cursor.execute("SHOW TABLES")
-        tables = cursor.fetchall()
-        print(f"\n📋 Database tables ({len(tables)}):")
-        for table in tables:
-            table_name = list(table.values())[0]
-            print(f"   - {table_name}")
+        print("💾 Storing test log in database...")
+        db_helper.store_test_result_in_tables(
+            test_case_name="database_connection_test",
+            module_name="test_db_connection_simple",
+            test_status="PASSED",
+            error_message=test_message,
+            device_name="github_actions",
+            screen_resolution="ci_environment"
+        )
         
-        # Close connections properly
-        cursor.close()
-        conn.close()
-        print("\n✅ Database test completed successfully!")
-        return True
+        # Get updated test count
+        updated_results = db_helper.get_test_results(limit=10)
+        updated_count = len(updated_results)
+        print(f"📊 Updated test results in database: {updated_count}")
         
+        # Verify the entry was added
+        if updated_count > initial_count:
+            print("✅ Database logging is WORKING!")
+            print(f"   - Successfully added {updated_count - initial_count} new test result(s)")
+            
+            # Show the latest entry
+            latest_result = updated_results[0] if updated_results else None
+            if latest_result:
+                print(f"   - Latest test: {latest_result['test_case_name']} ({latest_result['test_status']})")
+                print(f"   - Timestamp: {latest_result['test_datetime']}")
+            
+            db_helper.close()
+            return True
+        else:
+            print("❌ Database logging is NOT WORKING!")
+            print("   - No new test results were added to database")
+            db_helper.close()
+            return False
+            
     except Exception as e:
-        print(f"❌ Database connection failed: {e}")
+        print(f"❌ Database connection ERROR: {type(e).__name__} - {e}")
         return False
 
 if __name__ == "__main__":
-    test_connection() 
+    print("🚀 Database Connection Test")
+    print("=" * 40)
+    
+    success = test_database_connection()
+    
+    if success:
+        print("\n🎉 Database connection and logging test PASSED!")
+        print("   Your database integration is working correctly.")
+        sys.exit(0)
+    else:
+        print("\n⚠️ Database connection and logging test FAILED!")
+        print("   Please check your database configuration.")
+        sys.exit(1) 

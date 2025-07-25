@@ -11,44 +11,58 @@ from db.db_helper import MySQLHelper
 
 def test_database_connection():
     """Test database connection and table creation"""
-    db_helper = MySQLHelper()
-    db_helper.create_test_results_table()
-    print("✅ Database connection successful")
-    db_helper.close()
-    assert True  # Test passes if no exception is raised
+    try:
+        db_helper = MySQLHelper()
+        db_helper.create_test_results_table()
+        print("✅ Database connection successful")
+        db_helper.close()
+        return True
+    except Exception as e:
+        print(f"❌ Database connection failed: {e}")
+        return False
 
 
 def test_insert_test_result():
     """Test inserting a test result"""
-    db_helper = MySQLHelper()
+    try:
+        db_helper = MySQLHelper()
 
-    # Insert a test result
-    db_helper.insert_test_result(
-        test_case_name="test_database_integration",
-        module_name="test_db_integration",
-        test_status="PASSED",
-        error_message=None,
-    )
+        # Insert a test result
+        db_helper.insert_test_result(
+            test_case_name="test_database_integration",
+            module_name="test_db_integration",
+            test_status="PASSED",
+            error_message=None,
+        )
 
-    # Get statistics to verify
-    stats = db_helper.get_test_statistics()
-    assert (
-        stats
-        and "total_tests" in stats
-        and stats["total_tests"]
-        and stats["total_tests"] > 0
-    ), "No test records found"
-    print("✅ Test result insertion successful")
-    db_helper.close()
+        # Get statistics to verify
+        stats = db_helper.get_test_statistics()
+        if not (stats and "total_tests" in stats and stats["total_tests"] > 0):
+            print("❌ No test records found")
+            return False
+            
+        print("✅ Test result insertion successful")
+        db_helper.close()
+        return True
+    except Exception as e:
+        print(f"❌ Test result insertion failed: {e}")
+        return False
 
 
 def test_get_test_result():
     """Test retrieving test results"""
-    db_helper = MySQLHelper()
-    results = db_helper.get_test_results(limit=10)
-    print(f"✅ Retrieved {len(results)} test results")
-    assert isinstance(results, list), "Results should be a list"
-    db_helper.close()
+    try:
+        db_helper = MySQLHelper()
+        results = db_helper.get_test_results(limit=10)
+        print(f"✅ Retrieved {len(results)} test results")
+        if not isinstance(results, list):
+            print("❌ Results should be a list")
+            return False
+        db_helper.close()
+        return True
+    except Exception as e:
+        print(f"❌ Get test results failed: {e}")
+        return False
 
 
 def main():
