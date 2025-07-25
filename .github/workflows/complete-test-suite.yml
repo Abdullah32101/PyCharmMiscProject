@@ -295,6 +295,30 @@ jobs:
         retention-days: 30
         if-no-files-found: warn
 
+    - name: Capture all test logs
+      id: capture-logs
+      continue-on-error: true
+      run: |
+        echo "🔍 Capturing all test logs and storing in database..."
+        echo "📋 This will capture:"
+        echo "   - Complete test suite execution logs"
+        echo "   - GitHub Actions workflow logs"
+        echo "   - Test execution logs"
+        echo "   - Git commit information"
+        echo "   - Environment details"
+        echo "   - Test artifacts and reports"
+        echo ""
+        
+        # Run comprehensive log capture
+        if python capture_all_test_logs.py; then
+          echo "✅ All test logs captured and stored in database!"
+          echo "log_capture=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Log capture failed!"
+          echo "log_capture=failed" >> $GITHUB_OUTPUT
+          echo "⚠️ Continuing workflow despite log capture failure"
+        fi
+
     - name: Verify database results
       id: verify-db
       continue-on-error: true
