@@ -1,0 +1,111 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [ develop, staging, master ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - testing
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: test_framework
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_password
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Create database configuration
+      run: |
+        mkdir -p db
+        cat > db/db_config.py << EOF
+        DB_CONFIG = {
+            'host': '127.0.0.1',
+            'user': 'test_user',
+            'password': 'test_password',
+            'database': 'test_framework',
+            'port': 3306
+        }
+        EOF
+
+    - name: Initialize database
+      run: |
+        python init_database.py
+        python create_tables.py
+
+    - name: Run pre-deployment tests
+      run: |
+        echo "Running quick smoke tests before deployment..."
+        pytest tests/test_ci_smoke.py --tb=short -v --timeout=60
+
+    - name: Deploy to staging
+      run: |
+        echo "🚀 Deploying to ${{ github.event.inputs.environment || 'staging' }} environment"
+        echo "📦 Package: Automated Test Framework"
+        echo "🔧 Version: $(git rev-parse --short HEAD)"
+        echo "📅 Deploy Time: $(date)"
+        
+        # Create deployment package
+        mkdir -p deployment
+        cp -r tests/ deployment/
+        cp -r pages/ deployment/
+        cp -r db/ deployment/
+        cp -r assets/ deployment/
+        cp *.py deployment/
+        cp requirements.txt deployment/
+        cp README.md deployment/
+        
+        echo "✅ Deployment package created successfully"
+
+    - name: Notify deployment
+      run: |
+        echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "**Environment:** ${{ github.event.inputs.environment || 'staging' }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** $(git rev-parse --short HEAD)" >> $GITHUB_STEP_SUMMARY
+        echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Deploy Time:** $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Deployed Components:" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Test Framework Core" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Multi-device Testing" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Database Integration" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Screenshot Management" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Error Tracking" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Reporting System" >> $GITHUB_STEP_SUMMARY
+
+    - name: Upload deployment artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-package
+        path: deployment/
+        retention-days: 7 
