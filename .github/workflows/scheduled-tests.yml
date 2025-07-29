@@ -73,6 +73,12 @@ jobs:
             'port': 3306
         }
         EOF
+        
+        # Add the missing function to db_config.py
+        echo "def get_database_config(): return DB_CONFIG" >> db/db_config.py
+        echo "def is_github_actions(): return True" >> db/db_config.py
+        echo "def is_local_environment(): return False" >> db/db_config.py
+        
         python init_database.py
         python create_tables.py
 
