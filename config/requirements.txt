@@ -1,0 +1,7 @@
+selenium
+pytest
+pytest-cov
+pytest-html
+pytest-timeout
+webdriver-manager
+mysql-connector-python
